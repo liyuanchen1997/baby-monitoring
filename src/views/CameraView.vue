@@ -300,6 +300,11 @@ onUnmounted(() => {
   flex-direction: column;
   gap: 16px;
 }
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
 .topbar {
   display: flex;
   align-items: center;
