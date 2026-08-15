@@ -3,9 +3,13 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useSignaling } from '../composables/useSignaling.mjs'
 import { usePeerConnection } from '../composables/usePeerConnection.mjs'
+import { useTalk } from '../composables/useTalk.mjs'
+import { useScreenshot } from '../composables/useScreenshot.mjs'
+import { useRecorder } from '../composables/useRecorder.mjs'
 import { CONFIG } from '../config.js'
 import ConnectionBadge from '../components/ConnectionBadge.vue'
 import ViewerStage from '../components/ViewerStage.vue'
+import TalkButton from '../components/TalkButton.vue'
 
 const props = defineProps({
   joinCode: { type: String, default: '' },
@@ -14,11 +18,15 @@ const emit = defineEmits(['leave'])
 
 const { status: wsStatus, connect, send, on, close } = useSignaling()
 const pc = usePeerConnection()
+const talk = useTalk()
+const screenshot = useScreenshot()
+const recorder = useRecorder()
 
 const joined = ref(false)
 const joinError = ref('')
 const peerState = ref('waiting') // waiting | connected | left
 const remoteStream = ref(null)
+const stageRef = ref(null)
 let retryTimer = null
 
 const errText = {
@@ -92,6 +100,30 @@ watch(joinError, (e) => {
   }
 })
 
+async function onScreenshot() {
+  const video = stageRef.value?.video
+  const blob = await screenshot.capture(video)
+  if (!blob) {
+    joinError.value = '画面未就绪，稍后再试'
+    return
+  }
+  screenshot.shareOrDownload(blob, `snapshot-${Date.now()}.png`)
+}
+
+async function toggleRecord() {
+  const video = stageRef.value?.video
+  if (recorder.recording.value) {
+    const { blob, ext } = await recorder.stop()
+    screenshot.shareOrDownload(blob, `record-${Date.now()}.${ext}`)
+    return
+  }
+  if (!video?.videoWidth) {
+    joinError.value = '画面未就绪，稍后再试'
+    return
+  }
+  recorder.start(video)
+}
+
 const badgeState = computed(() => {
   if (wsStatus.value === 'disconnected') return 'disconnected'
   if (wsStatus.value === 'connecting') return 'connecting'
@@ -103,6 +135,7 @@ const badgeState = computed(() => {
 onUnmounted(() => {
   clearInterval(retryTimer)
   offs.forEach((f) => f())
+  talk.dispose()
   pc.close()
   close()
 })
@@ -116,7 +149,8 @@ onUnmounted(() => {
     </header>
 
     <main>
-      <ViewerStage v-if="joined && peerState !== 'left'" :stream="remoteStream" />
+      <ViewerStage v-if="joined && peerState !== 'left'" ref="stageRef" :stream="remoteStream" />
+      <p v-if="talk.error.value" class="error small">{{ talk.error.value }}</p>
 
       <section v-else-if="joinError" class="error-card glass">
         <p class="error">{{ errText[joinError] || joinError }}</p>
@@ -132,7 +166,22 @@ onUnmounted(() => {
     </main>
 
     <footer class="controls glass">
-      <button class="btn" @click="emit('leave')">退出</button>
+      <button class="btn icon-btn" title="截图" @click="onScreenshot">📸</button>
+      <TalkButton
+        :talking="talk.talking.value"
+        :disabled="!joined || peerState === 'left'"
+        @press="talk.press(pc.get())"
+        @release="talk.release()"
+      />
+      <button
+        class="btn icon-btn"
+        :class="{ recording: recorder.recording.value }"
+        :title="recorder.recording.value ? '停止录制' : '录制'"
+        @click="toggleRecord"
+      >
+        {{ recorder.recording.value ? '⏹' : '⏺' }}
+      </button>
+      <button class="btn icon-btn" title="退出" @click="emit('leave')">✕</button>
     </footer>
   </div>
 </template>
@@ -169,13 +218,26 @@ onUnmounted(() => {
 .controls {
   margin-top: auto;
   display: flex;
-  gap: 12px;
-  justify-content: center;
-  padding: 14px 16px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px 14px;
   position: sticky;
   bottom: calc(8px + env(safe-area-inset-bottom));
 }
-.controls .btn { flex: 1; max-width: 220px; }
+.icon-btn {
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  font-size: 20px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.recording {
+  background: var(--danger);
+  color: #2a0a10;
+  animation: pulse-alert 1.2s ease-in-out infinite;
+}
+.error.small { text-align: center; font-size: 13px; margin-top: 8px; }
 
 @media (min-width: 1024px) {
   .viewer-view { max-width: 860px; padding-top: 32px; }

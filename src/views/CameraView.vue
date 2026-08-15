@@ -7,6 +7,8 @@ import { usePeerConnection } from '../composables/usePeerConnection.mjs'
 import ConnectionBadge from '../components/ConnectionBadge.vue'
 import CameraPreview from '../components/CameraPreview.vue'
 
+const talkAudio = ref(null) // 隐藏 audio：外放观看端对讲声音
+
 const { status: wsStatus, connect, send, on, close } = useSignaling()
 const camera = useCamera()
 const pc = usePeerConnection()
@@ -58,11 +60,16 @@ async function startCamera() {
   if (!cameraActive.value) error.value = camera.error.value || '摄像头启动失败'
   busy.value = false
   maybeNegotiate()
+  // iOS 音频解锁：播放远端对讲流须在用户手势内（"开始监控"点击）
+  if (talkAudio.value) {
+    talkAudio.value.play().catch(() => {})
+  }
 }
 
 function stopCamera() {
   camera.stop()
   cameraActive.value = false
+  if (talkAudio.value) talkAudio.value.srcObject = null
   pc.close()
 }
 
@@ -79,6 +86,10 @@ async function maybeNegotiate() {
   try {
     pc.create({
       onIceCandidate: (candidate) => send('ice', { candidate }),
+      // 远端流 = 观看端对讲声音 → 拍摄端扬声器外放
+      onTrack: (stream) => {
+        if (talkAudio.value) talkAudio.value.srcObject = stream
+      },
     })
     const offer = await pc.makeOffer(camera.stream.value)
     send('offer', { sdp: offer.sdp })
@@ -143,6 +154,9 @@ onUnmounted(() => {
         <button class="btn btn-danger" @click="stopCamera">⏹ 停止</button>
       </template>
     </footer>
+
+    <!-- 外放观看端对讲声音（隐藏元素，iOS 需手势内 play） -->
+    <audio ref="talkAudio" autoplay playsinline class="hidden-audio"></audio>
   </div>
 </template>
 
@@ -198,6 +212,7 @@ onUnmounted(() => {
 
 .center { text-align: center; margin-top: 16px; }
 .error { color: var(--danger); text-align: center; margin-top: 8px; }
+.hidden-audio { display: none; }
 
 @media (min-width: 1024px) {
   .camera-view { max-width: 760px; padding-top: 32px; }

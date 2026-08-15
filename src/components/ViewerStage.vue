@@ -39,6 +39,9 @@ function onMeta() {
   hasVideo.value = true
   tryUnlock()
 }
+
+// 供父组件截图/录制访问真实 video 元素
+defineExpose({ video })
 </script>
 
 <template>

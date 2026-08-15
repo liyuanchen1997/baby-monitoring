@@ -60,3 +60,13 @@
 
 - **验证**：macOS Chrome 双标签页互看通过——实时画面正常、声音正常（Chrome 有用户手势直接解锁，「点击开启声音」遮罩为 iOS 兜底，仅在无手势场景出现）；翻转/停止功能待后续测试
 - **说明**：iOS Safari 真机测试列入最终验收矩阵（README/需求文档已含）
+
+## 2026-08-15 · 模块 4（对讲/截图/录制）· v0.5.0
+
+- **新增**：`src/composables/useTalk.mjs` — 按住说话：按需 gUM 麦克风（手势内申请）、`replaceTrack` 切换（按下发送/松开置 null，麦克风轨道复用）、复用模块 3 预留的 sendrecv transceiver 不重新协商
+- **新增**：`src/composables/useScreenshot.mjs` — canvas 截取远程帧 → PNG；`navigator.share` 优先（iOS 对 a.download 支持差）、下载兜底
+- **新增**：`src/composables/useRecorder.mjs` — 全平台统一 canvas 兜底路径（防 iOS 直录远程流黑屏 bug）：rAF drawImage → `captureStream(30)` + 拼接远端音频 → MediaRecorder；mimeType 按 isTypeSupported 选 mp4(avc1)/webm(vp8,opus)；`start(1000)` timeslice 修 Chrome duration bug；停止时仅停录制流自带 video track（不动远程音频）
+- **新增**：`src/components/TalkButton.vue` — 按住说话按钮：touch/mouse 双事件 + preventDefault 防滚动误触、touch-action none、按住琥珀点亮「松开停止」
+- **更新**：ViewerView — 底部毛玻璃控制栏（截图/说话/录制/退出），录制中按钮红色脉动；ViewerStage expose video 元素供截图录制；`usePeerConnection` 新增 `get()` 暴露底层 PC
+- **更新**：CameraView — 隐藏 audio 元素外放观看端对讲声（onTrack 接入；「开始监控」手势内 play() 解锁 iOS 音频）
+- **验证**：7 个新/改文件 vite 编译 200 无错误；真实浏览器测试待用户验证

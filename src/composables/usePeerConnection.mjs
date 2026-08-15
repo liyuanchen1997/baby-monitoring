@@ -85,5 +85,10 @@ export function usePeerConnection() {
     connectionState.value = 'closed'
   }
 
-  return { connectionState, create, makeOffer, handleOffer, handleAnswer, handleIce, applyBitrate, close }
+  /** 暴露当前底层 RTCPeerConnection（对讲 replaceTrack 等用） */
+  function get() {
+    return pc
+  }
+
+  return { connectionState, create, makeOffer, handleOffer, handleAnswer, handleIce, applyBitrate, close, get }
 }
