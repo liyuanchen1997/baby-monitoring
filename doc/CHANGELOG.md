@@ -83,3 +83,11 @@
 - **更新**：CameraView — L1 ICE 状态机：disconnected 容忍 5s → `restartIce` 重协商；failed → 整体重建 PC（保留 WS 与房间）；L2 媒体冻结检测（requestVideoFrameCallback，connected 且 >5s 无新帧 → restartIce）；处理 `restart-request`
 - **更新**：ViewerView — failed 5s 后仍失败 → 发 `restart-request` 请求拍摄端重协商；AP 隔离提示（WS 正常 + ICE failed + 从未连接成功 → 黄框提示路由器可能开启客户端隔离）
 - **验证**：5 个新/改文件编译 200 无错误；真实断网重连待用户验证（飞行模式/WiFi 断开 10s 再恢复，画面应自动续上）
+
+## 2026-08-15 · 修复 · v0.6.1
+
+- **修复**（重要）：对讲"未找到音频通道"根治——Safari 未实现 `RTCRtpSender.kind`（实测 undefined）且接收通道 sender.track 恒为 null，原匹配条件永远落空。改为匹配 transceiver：`direction ∈ {sendrecv, sendonly}` 且 `receiver.track.kind === 'audio'`（Safari/Chrome 通用）
+- **修复**：handleOffer 重复 addTransceiver 的累积检查同样依赖失效的 sender.kind → 改为 receiver.track.kind 判断，重协商不再累积音频通道（此前实测出现 8 个 sender）
+- **修复**：ViewerView.ensurePeer 重复创建 PC（create 后状态仍 'new'，每次 offer/join 都重建）→ 增加 pcCreated 标志
+- **新增**：useTalk 调试日志（[talk] press 输出 pc 状态与 transceiver 列表）
+- **验证**：Safari 按住说话通过（matched sender: true, direction: sendrecv）

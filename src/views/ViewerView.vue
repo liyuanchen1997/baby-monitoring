@@ -62,6 +62,7 @@ let offs = [
       peerState.value = 'left'
       joined.value = false
       remoteStream.value = null
+      pcCreated = false
       pc.close()
     }
   }),
@@ -72,8 +73,11 @@ let offs = [
 ]
 
 /** 创建 PeerConnection：本端只收集 ICE，协商由拍摄端发起 */
+let pcCreated = false
+
 function ensurePeer() {
-  if (pc.connectionState.value !== 'new' && pc.connectionState.value !== 'closed') return
+  if (pcCreated && pc.connectionState.value !== 'closed') return
+  pcCreated = true
   pc.create({
     onIceCandidate: (candidate) => send('ice', { candidate }),
     onStateChange: (state) => {

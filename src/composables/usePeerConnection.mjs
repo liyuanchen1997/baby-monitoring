@@ -54,7 +54,18 @@ export function usePeerConnection() {
   async function handleOffer(sdp) {
     await pc.setRemoteDescription({ type: 'offer', sdp })
     // sendrecv：接收拍摄端音频 + 预留对讲发送通道（模块 4 用 replaceTrack 填充）
-    pc.addTransceiver('audio', { direction: 'sendrecv' })
+    // 已有音频发送通道（重协商时）则复用，避免 transceiver 累积
+    // 用 receiver.track.kind 判断（sender.kind 在 Safari 未实现）
+    const hasAudioSender = pc
+      .getTransceivers()
+      .some(
+        (t) =>
+          t.receiver?.track?.kind === 'audio' &&
+          ['sendrecv', 'sendonly'].includes(t.direction),
+      )
+    if (!hasAudioSender) {
+      pc.addTransceiver('audio', { direction: 'sendrecv' })
+    }
     const answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
     return answer
