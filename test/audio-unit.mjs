@@ -66,5 +66,20 @@ for (let i = 0; i < 30; i++) nf2.update(0.1)
 for (let i = 0; i < 10; i++) nf2.update(0.9) // 突发哭声
 assert(`噪声底抗突发干扰（实际${nf2.floor.toFixed(3)}）`, nf2.floor < 0.3)
 
+// 学习暂停：哭声激活时基线不随持续哭声抬升
+const nf3 = new NoiseFloor()
+for (let i = 0; i < 30; i++) nf3.update(0.1)
+nf3.setLearning(false)
+for (let i = 0; i < 100; i++) nf3.update(0.8) // 持续哭声
+assert(`噪声底暂停学习（实际${nf3.floor.toFixed(3)}）`, nf3.floor < 0.3)
+
+// byte 频带能量：刻度与 float dB 路径统一（0-1 范围）
+const byteFake = { context: { sampleRate: 48000 }, fftSize: 2048, minDecibels: -100, maxDecibels: -30 }
+const byteData = new Uint8Array(1024)
+byteData.fill(0)
+for (let i = 13; i <= 128; i++) byteData[i] = 255 // 300-3000Hz 满幅
+const eByte = bandEnergy(byteFake, byteData, 300, 3000)
+assert(`byte 频带能量刻度统一 0-1（实际${eByte.toFixed(3)}）`, eByte > 0.6 && eByte < 0.8)
+
 console.log(`\n结果: ${passed} 通过, ${failed} 失败`)
 process.exit(failed ? 1 : 0)

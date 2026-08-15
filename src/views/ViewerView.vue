@@ -33,6 +33,7 @@ const peerState = ref('waiting') // waiting | connected | left
 const remoteStream = ref(null)
 const stageRef = ref(null)
 let retryTimer = null
+let hadJoined = false // 本端是否曾加入过（WS 重连后的 join 携带 rejoin 供服务器计算离线错过）
 
 const errText = {
   'room-not-found': '房间不存在，拍摄端可能尚未开始监控',
@@ -43,6 +44,7 @@ let offs = [
   on('room-joined', (m) => {
     if (m.ok) {
       joined.value = true
+      hadJoined = true
       joinError.value = ''
       ensurePeer()
     } else {
@@ -102,7 +104,7 @@ const apIsolation = computed(
 
 function tryJoin() {
   if (wsStatus.value === 'connected' && props.joinCode && !joined.value) {
-    send('join-room', { code: props.joinCode })
+    send('join-room', { code: props.joinCode, rejoin: hadJoined })
   }
 }
 
@@ -114,6 +116,11 @@ onMounted(() => {
 })
 
 watch(wsStatus, (s) => {
+  if (s === 'disconnected') {
+    // WS 断开：服务器已清 viewer 槽，重置加入状态以便重连后重新 join
+    joined.value = false
+    peerState.value = 'waiting'
+  }
   if (s === 'connected') tryJoin()
 })
 
@@ -164,7 +171,8 @@ function onKeyDown(e) {
   if (tag === 'INPUT' || tag === 'TEXTAREA') return // 不拦截输入框
   if (e.code === 'Space') {
     e.preventDefault()
-    talk.press(pc.get())
+    // 与 TalkButton 的 :disabled 守卫对齐：未加入房间/拍摄端断开时不触发
+    if (joined.value && peerState.value !== 'left') talk.press(pc.get())
   } else if (e.key === 's' || e.key === 'S') {
     onScreenshot()
   } else if (e.key === 'r' || e.key === 'R') {
@@ -192,6 +200,7 @@ onUnmounted(() => {
   window.removeEventListener('keyup', onKeyUp)
   offs.forEach((f) => f())
   talk.dispose()
+  notifier.dispose() // 标题闪烁/横幅计时器/音频上下文清理
   wakeLock.release()
   pc.close()
   close()

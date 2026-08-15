@@ -171,6 +171,10 @@ function stopCamera() {
 async function flipCamera() {
   await camera.flip()
   pc.close() // track 已更换，需重新协商
+  // 媒体流已更换：必须重启检测器——哭声检测的 AudioContext 源绑定旧流，
+  // 不重建则翻转后哭声检测静默失效（动作检测读 video 元素会自动跟随，但保持统一重启）
+  activity.stop()
+  activity.start(previewRef.value?.video, camera.stream.value)
   maybeNegotiate()
 }
 
@@ -244,6 +248,10 @@ onUnmounted(() => {
 
     <main>
       <CameraPreview ref="previewRef" :stream="camera.stream.value" />
+
+      <p v-if="cameraActive && !wakeLock.active.value" class="wake-hint muted">
+        ⚠️ 屏幕常亮未生效，请手动设置永不锁屏
+      </p>
 
       <template v-if="cameraActive">
         <ActivityBadge :state="activity.state.value" :events="activity.events.value">

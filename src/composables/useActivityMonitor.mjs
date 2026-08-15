@@ -10,12 +10,21 @@ import { CONFIG } from '../config.js'
 import { useMotionDetector } from './useMotionDetector.mjs'
 import { useCryDetector } from './useCryDetector.mjs'
 
-const EVENT_MAX = 10
+const { eventMax: EVENT_MAX } = CONFIG.detection
+const STORAGE_KEY = CONFIG.storageKeys.sensitivity
+const SENSITIVITY_KEYS = Object.keys(CONFIG.sensitivity)
 
 export function useActivityMonitor({ sendActivity, heartbeatMs = CONFIG.notifier.activityHeartbeatMs } = {}) {
   const state = ref('calm')
   const events = ref([])
-  const sensitivityLevel = ref(localStorage.getItem('bm-sensitivity') || 'medium')
+  // localStorage 值校验：损坏/非法值回退默认（否则 cfg() 返回 undefined 使检测器启动崩溃）
+  let saved = null
+  try {
+    saved = localStorage.getItem(STORAGE_KEY)
+  } catch {
+    // 存储不可用（隐私模式等）：使用默认
+  }
+  const sensitivityLevel = ref(SENSITIVITY_KEYS.includes(saved) ? saved : 'medium')
 
   const motion = useMotionDetector()
   const cry = useCryDetector()
@@ -23,6 +32,10 @@ export function useActivityMonitor({ sendActivity, heartbeatMs = CONFIG.notifier
   let lastReported = 'calm'
   let seq = 0
   let heartbeatTimer = null
+  // 检测器实时状态（推导式状态机：每个检测器事件到达时重新推导，
+  // 不再依赖各回调的不对称守卫——修复 cry.onQuiet 覆盖 moving 的问题）
+  let motionActive = false
+  let cryActive = false
 
   function cfg() {
     return CONFIG.sensitivity[sensitivityLevel.value]
@@ -39,20 +52,35 @@ export function useActivityMonitor({ sendActivity, heartbeatMs = CONFIG.notifier
     sendActivity?.({ state: next, seq, ts: evt.ts })
   }
 
+  /** 优先级推导：crying > moving > calm（每个检测器事件触发） */
+  function recompute() {
+    report(cryActive ? 'crying' : motionActive ? 'moving' : 'calm')
+  }
+
   /** 开始检测（在"开始监控"手势内调用：iOS 音频解锁） */
   function start(video, stream) {
+    motionActive = false
+    cryActive = false
     motion.start(video, cfg(), {
       onActive: () => {
-        if (state.value !== 'crying') report('moving')
+        motionActive = true
+        recompute()
       },
       onQuiet: () => {
-        if (state.value !== 'crying') report('calm')
+        motionActive = false
+        recompute()
       },
     })
     cry.start(stream, cfg(), {
-      onCry: () => report('crying'),
-      onQuiet: () => report('calm'),
-    })
+      onCry: () => {
+        cryActive = true
+        recompute()
+      },
+      onQuiet: () => {
+        cryActive = false
+        recompute()
+      },
+    }).catch(() => {}) // start 内部已防护；双保险防未处理 rejection
     clearInterval(heartbeatTimer)
     heartbeatTimer = setInterval(() => {
       // 非 calm 状态心跳（覆盖"持续哭闹但无状态迁移"场景）
@@ -63,8 +91,13 @@ export function useActivityMonitor({ sendActivity, heartbeatMs = CONFIG.notifier
   }
 
   function setSensitivity(level) {
+    if (!SENSITIVITY_KEYS.includes(level)) return
     sensitivityLevel.value = level
-    localStorage.setItem('bm-sensitivity', level)
+    try {
+      localStorage.setItem(STORAGE_KEY, level)
+    } catch {
+      // Safari 隐私模式写入失败：静默忽略（本次会话仍生效）
+    }
     motion.setSensitivity(cfg())
     cry.setSensitivity(cfg())
   }
@@ -77,10 +110,18 @@ export function useActivityMonitor({ sendActivity, heartbeatMs = CONFIG.notifier
     motion.stop()
     cry.stop()
     clearInterval(heartbeatTimer)
+    motionActive = false
+    cryActive = false
     // 停止再开始 = 新检测会话：重置状态与上报基准，
     // 否则重启后首次检测到同状态会被 report() 判重跳过（只靠 30s 心跳兜底）
     lastReported = 'calm'
     state.value = 'calm'
+    // 通知观看端监控已停止（否则服务器缓存停留最后状态：
+    // 原观看端横幅挂满超时、新加入者收到假哭闹补发）
+    if (sendActivity) {
+      seq++
+      sendActivity({ state: 'calm', seq, ts: Date.now() })
+    }
   }
 
   return { state, events, sensitivityLevel, start, setSensitivity, setTalkActive, stop }

@@ -1,19 +1,14 @@
 <script setup>
 // 检测状态徽标（拍摄端）：三色圆点 + 最近事件列表
 import { computed } from 'vue'
+import { ACTIVITY_META } from '../utils/activityMeta.mjs'
 
 const props = defineProps({
   state: { type: String, default: 'calm' }, // calm | moving | crying
   events: { type: Array, default: () => [] },
 })
 
-const META = {
-  calm: { label: '安静', halo: '' },
-  moving: { label: '轻微活动', halo: 'warn' },
-  crying: { label: '哭闹', halo: 'alert' },
-}
-
-const stateMeta = computed(() => META[props.state] || META.calm)
+const stateMeta = computed(() => ACTIVITY_META[props.state] || ACTIVITY_META.calm)
 
 function fmt(ts) {
   const d = new Date(ts)
@@ -34,7 +29,7 @@ function fmt(ts) {
     <ul v-if="events.length" class="events">
       <li v-for="(e, i) in events" :key="i" class="muted">
         <span class="num">{{ fmt(e.ts) }}</span>
-        <span :class="['evt', e.state]">{{ META[e.state]?.label }}</span>
+        <span :class="['evt', e.state]">{{ (ACTIVITY_META[e.state] || ACTIVITY_META.calm).label }}</span>
       </li>
     </ul>
   </div>

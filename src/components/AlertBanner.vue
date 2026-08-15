@@ -1,17 +1,15 @@
 <script setup>
 // 告警横幅（观看端）：状态驱动，哭闹红 / 活动黄
 import { computed } from 'vue'
+import { ACTIVITY_META } from '../utils/activityMeta.mjs'
 
 const props = defineProps({
   banner: { type: Object, default: null }, // { level: 'moving'|'crying', ts }
 })
 
-const META = {
-  moving: { text: '🟡 宝宝有活动', cls: 'moving' },
-  crying: { text: '🔴 宝宝在哭', cls: 'crying' },
-}
-
-const meta = computed(() => (props.banner ? META[props.banner.level] || META.moving : null))
+const meta = computed(() =>
+  props.banner ? ACTIVITY_META[props.banner.level] || ACTIVITY_META.moving : null,
+)
 </script>
 
 <template>

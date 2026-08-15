@@ -117,24 +117,40 @@ try {
   // 6. 观看端离线期间 camera 再上报（seq=2，无转发但更新 cameraSeq）
   camera.send({ type: 'activity', state: 'moving', seq: 2, ts: 124 })
 
-  // 7. 新观看端加入 → 补发最新 activity + 离线错过提示 missed=1
+  // 7. 观看端重连（rejoin）→ 补发最新 activity + 离线错过提示 missed=1
   const viewer2 = await open(url)
   all.push(viewer2)
-  viewer2.send({ type: 'join-room', code: created.code })
+  viewer2.send({ type: 'join-room', code: created.code, rejoin: true })
   const joined2 = await viewer2.once('room-joined')
-  assert('新观看端加入成功', joined2.ok === true)
-  assert('新观看端补发最新 activity', (await viewer2.once('activity')).state === 'moving')
-  assert('新观看端收到离线错过提示 missed=1', (await viewer2.once('activity-backlog')).missed === 1)
+  assert('观看端重连加入成功', joined2.ok === true)
+  assert('重连观看端补发最新 activity', (await viewer2.once('activity')).state === 'moving')
+  assert('重连观看端收到离线错过提示 missed=1', (await viewer2.once('activity-backlog')).missed === 1)
 
-  // 8. 满员拒绝（viewer2 在槽内）
+  // 7b. 新观看端首次加入（无 rejoin）→ 不报"错过"（viewerSeq 是上一会话残留值）
+  viewer2.send({ type: 'leave' }) // 先腾出 viewer 槽
   const viewer3 = await open(url)
   all.push(viewer3)
   viewer3.send({ type: 'join-room', code: created.code })
-  assert('满员拒绝 room-full', (await viewer3.once('room-joined')).reason === 'room-full')
+  const joined3 = await viewer3.once('room-joined')
+  assert('新观看端首次加入成功', joined3.ok === true)
+  let backlogLeak = false
+  try {
+    await viewer3.once('activity-backlog', 500)
+    backlogLeak = true
+  } catch {
+    // 超时 = 未收到 backlog ✓
+  }
+  assert('新观看端首次加入不误报错过', backlogLeak === false)
+
+  // 8. 满员拒绝（viewer3 在槽内）
+  const viewer4 = await open(url)
+  all.push(viewer4)
+  viewer4.send({ type: 'join-room', code: created.code })
+  assert('满员拒绝 room-full', (await viewer4.once('room-joined')).reason === 'room-full')
 
   // 9. 拍摄端离开 → 删房 + 通知在场观看端 camera-left
   camera.send({ type: 'leave' })
-  assert('观看端收到 camera-left', (await viewer2.once('peer-left')).reason === 'camera-left')
+  assert('观看端收到 camera-left', (await viewer3.once('peer-left')).reason === 'camera-left')
 
   // 10. 恢复码重建
   const camera2 = await open(url)

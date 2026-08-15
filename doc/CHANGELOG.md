@@ -164,3 +164,36 @@
 ## 2026-08-15 · 开源发布准备 · v1.0.6
 
 - **新增**：LICENSE（MIT，© 2026 liyuanchen）；README 开源化重写（功能特性/技术栈/结构/快速开始/FAQ/已知限制）；CHANGELOG 脱敏真实局域网 IP
+
+## 2026-08-15 · 补记 · v1.0.6a（此前 4 个提交漏记，现补录）
+
+- **修复**：房间码字号在 ≥1024px 断点遗留 64px 覆盖样式，统一为 30px（1f7895a）
+- **更新**：拍摄端 main 区域纵向 flex 间距 16px（e215833）
+- **更新**：灵敏度选择器嵌入监控活动卡片右上角（ActivityBadge 增加 extra 插槽）（b072936）
+- **修复**：移动端房间码条溢出变形——<768px 隐藏状态文字只留圆点、压缩间距与按钮（ff3160f）
+
+## 2026-08-15 · 代码审查修复批次 1-3 · v1.1.0
+
+**检测核心（批次 1）**
+- **修复**：哭声检测持续哭闹振荡——quietStreak 在窗口达标时也自增，持续哭闹每 5s 误报一次安静；达标帧改为重置计数
+- **修复**：状态机优先级不对称——cry.onQuiet 无条件报 calm 覆盖仍活跃的 moving，且动作 onActive 精确计数不重发，导致哭完还在动时显示"安静"；改为推导式状态机（跟踪两检测器实时布尔状态，事件到达时按 crying > moving > calm 重新推导）
+- **修复**：帧冻结保护 off-by-N——冻结的前 3 帧（750ms）仍进入差分逻辑误报安静；改为冻结帧立即跳过不累计
+- **修复**：翻转镜头后哭声检测静默失效——AudioContext 源绑定已停止的旧流；flipCamera 现重启检测器
+
+**告警/对讲链路（批次 2）**
+- **修复**：心跳刷屏——同状态心跳（30s）不再重放响铃/通知/振动/标题闪烁（仅刷新横幅）；横幅 3min 超时仅在状态变化时重置（心跳不再刷新计时）
+- **修复**：useNotifier 无清理路径——新增 dispose()（标题闪烁/横幅计时器/audioCtx 关闭），ViewerView 卸载时调用
+- **修复**：空格短按对讲卡死——press/release 竞态：release 在 gUM 挂起期间到达时标记 pendingRelease，press 完成即撤销；空格按键增加 joined 守卫（未加入不弹权限框）
+- **修复**：停止监控不通知观看端——activity.stop() 发送 calm（服务器缓存更新，原观看端横幅清除、新加入者不再收到假哭闹补发）
+- **修复**：activity-backlog 语义——仅 rejoin（本端曾加入过）才计算错过数，首次加入/换观看端不误报；观看端 WS 断开时重置 joined 以便重连后重新 join（携带 rejoin）
+- **修复**：光照变化帧计入安静证据——isLightChange 帧改为中性（不累计 active/quiet），不再误报 calm 掩盖真实运动
+- **修复**：屏幕常亮警告回归——监控中 wakeLock 未生效时显示提示行
+
+**潜伏缺陷（批次 3）**
+- **修复**：Safari byte 能量刻度膨胀 ~2.4 倍——bandEnergy 对 byte 输入按 [minDecibels,maxDecibels] 线性映射统一刻度；getFloatTimeDomainData 增加 byte 时域降级（原无守卫，老 Safari 每 100ms 抛异常检测器死亡）
+- **修复**：噪声底吸收持续哭声——哭声激活时暂停基线学习（setLearning），持续哭闹不再 10-70s 后检测自行停止；floor 哨兵 0 改为 null（避免静音房间绕过 EMA）
+- **修复**：localStorage 灵敏度未校验——非法值回退默认（否则检测器启动崩溃）；setItem 包 try/catch（Safari 隐私模式）；存储键移入 config.js
+- **修复**：AudioContext 竞态——start() 捕获会话引用，stop 挂起期间放弃初始化不抛空引用；cry.start 调用处 .catch 兜底；页面隐藏时停止分析（省电）；fftSize 2048→512
+- **更新**：配置中心化——检测参数（采样/预热/阈值/空隙/事件条数）、提醒参数（标题闪烁/铃声频率/振动模式）全部迁入 config.js
+- **新增**：`src/utils/activityMeta.mjs` 状态元数据统一表（ActivityBadge/AlertBanner/useNotifier 共用，消除三处重复与文案漂移）
+- **验证**：audio-unit 9/9（新增暂停学习与 byte 刻度断言）；smoke 19/19（新增 rejoin/首入 backlog 语义断言）；e2e 9/9

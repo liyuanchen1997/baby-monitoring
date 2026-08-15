@@ -5,7 +5,12 @@
  * - NoiseFloor: 自适应噪声底（60s 滑动窗低分位 EMA，窗帘/空调声自动学成正常）
  */
 
-/** 计算指定频带 [startHz, endHz] 的平均能量（dBFS 归一化 0-1） */
+/**
+ * 计算指定频带 [startHz, endHz] 的平均能量（归一化 0-1，与 float dB 路径同刻度）
+ * - Float32Array：dB 值（-100..0），(avg+100)/100
+ * - Uint8Array（Safari 降级）：byte 值线性映射 [minDecibels, maxDecibels] 后转 dB，
+ *   修复原实现直接套 (avg+100)/100 导致刻度膨胀 ~2.4 倍（iOS 误报率偏高）
+ */
 export function bandEnergy(analyser, freqData, startHz, endHz) {
   const sampleRate = analyser.context.sampleRate
   const binWidth = sampleRate / analyser.fftSize
@@ -18,8 +23,16 @@ export function bandEnergy(analyser, freqData, startHz, endHz) {
     sum += freqData[i]
   }
   const avg = sum / (end - start)
-  // float 数据为 dB（-100..0），byte 数据为 0-255
-  return (avg + 100) / 100 // 归一化 0-1
+
+  if (freqData instanceof Uint8Array) {
+    // byte 值 0-255 线性映射 [minDecibels, maxDecibels]（规范：min→0, max→255）
+    const minDb = analyser.minDecibels ?? -100
+    const maxDb = analyser.maxDecibels ?? -30
+    const dbAvg = minDb + (avg / 255) * (maxDb - minDb)
+    return (dbAvg + 100) / 100
+  }
+  // float 数据为 dB（-100..0）
+  return (avg + 100) / 100
 }
 
 /**
@@ -63,10 +76,12 @@ export class NoiseFloor {
     this.lowPercentile = lowPercentile
     this.emaFactor = emaFactor
     this.buffer = []
-    this.floor = 0
+    this.floor = null // null = 未初始化（避免把合法静音值 0 当哨兵）
+    this.learning = true
   }
 
   update(value) {
+    if (!this.learning) return this.floor ?? 0 // 哭声激活：暂停学习，防止基线被哭声吸收
     this.buffer.push(value)
     if (this.buffer.length > this.windowSize) this.buffer.shift()
 
@@ -76,9 +91,14 @@ export class NoiseFloor {
     const low = sorted[idx]
 
     // EMA 平滑（首个样本直接采用）
-    if (this.floor === 0) this.floor = low
+    if (this.floor === null) this.floor = low
     else this.floor = this.floor * (1 - this.emaFactor) + low * this.emaFactor
     return this.floor
+  }
+
+  /** 暂停/恢复基线学习（哭声激活时暂停，防止持续哭声抬高基线） */
+  setLearning(v) {
+    this.learning = v
   }
 
   /** 预热判断：窗口未填满时返回 true（检测器应暂不判定） */

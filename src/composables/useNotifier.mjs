@@ -7,9 +7,12 @@
  * - iOS Safari 不支持网页通知（仅横幅+声音），文档已注明
  */
 import { ref } from 'vue'
+import { CONFIG } from '../config.js'
 
-const BANNER_TIMEOUT_MS = 3 * 60_000
-const TITLE_FLASH_MS = 1000
+const BANNER_TIMEOUT_MS = CONFIG.notifier.bannerTimeoutMs
+const TITLE_FLASH_MS = CONFIG.notifier.titleFlashMs
+const CHIME_HZ = CONFIG.notifier.chimeHz
+const VIBRATE_PATTERN = CONFIG.notifier.vibratePattern
 const BASE_TITLE = '👶 宝宝监控'
 
 export function useNotifier() {
@@ -22,16 +25,19 @@ export function useNotifier() {
   let bannerTimer = null
   let titleTimer = null
   let titleCry = false
+  let lastNotifiedState = null // 状态迁移去重（心跳不重复告警）
 
   /** 开启提醒（用户手势内调用：音频解锁 + 通知权限） */
   function enable() {
     enabled.value = true
     if (soundSupported.value && !audioCtx) {
       audioCtx = new AudioContext()
-      if (audioCtx.state === 'suspended') audioCtx.resume()
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume().catch(() => {}) // 拒绝静默降级（不产生未处理 rejection）
+      }
     }
     if (notifySupported.value && Notification.permission === 'default') {
-      Notification.requestPermission()
+      Notification.requestPermission().catch(() => {})
     }
   }
 
@@ -39,6 +45,15 @@ export function useNotifier() {
     enabled.value = false
     clearBanner()
     stopTitleFlash()
+    lastNotifiedState = null
+  }
+
+  /** 组件卸载清理（标题闪烁/横幅计时器/音频上下文） */
+  function dispose() {
+    clearTimeout(bannerTimer)
+    stopTitleFlash()
+    audioCtx?.close().catch(() => {})
+    audioCtx = null
   }
 
   function clearBanner() {
@@ -47,20 +62,25 @@ export function useNotifier() {
   }
 
   function showBanner(level) {
+    const isNewLevel = !banner.value || banner.value.level !== level
     banner.value = { level, ts: Date.now() }
-    clearTimeout(bannerTimer)
-    bannerTimer = setTimeout(clearBanner, BANNER_TIMEOUT_MS) // 3min 超时自动清除
+    if (isNewLevel) {
+      // 仅状态变化时重置 3min 超时（心跳刷新不重置，否则横幅永不自动清除）
+      clearTimeout(bannerTimer)
+      bannerTimer = setTimeout(clearBanner, BANNER_TIMEOUT_MS)
+    }
   }
 
-  /** 三连短音（880Hz），须在 enable 手势后可用 */
+  /** 三连短音，须在 enable 手势后可用 */
   function playSound() {
     if (!audioCtx) return
+    if (audioCtx.state === 'suspended') audioCtx.resume().catch(() => {}) // 迟到的手势解锁
     const now = audioCtx.currentTime
     for (let i = 0; i < 3; i++) {
       const osc = audioCtx.createOscillator()
       const gain = audioCtx.createGain()
       osc.type = 'sine'
-      osc.frequency.value = 880
+      osc.frequency.value = CHIME_HZ
       gain.gain.setValueAtTime(0.25, now + i * 0.28)
       gain.gain.exponentialRampToValueAtTime(0.001, now + i * 0.28 + 0.22)
       osc.connect(gain)
@@ -93,25 +113,30 @@ export function useNotifier() {
   }
 
   function vibrate() {
-    if (navigator.vibrate) navigator.vibrate([200, 100, 200])
+    if (navigator.vibrate) navigator.vibrate(VIBRATE_PATTERN)
   }
 
-  /** activity 消息入口（状态驱动） */
+  /** activity 消息入口（状态驱动；同状态心跳只刷新横幅，不重放完整告警） */
   function onActivity(evt) {
     if (!enabled.value) return
     if (evt.state === 'calm') {
       clearBanner()
       stopTitleFlash()
+      lastNotifiedState = null
       return
     }
     const level = evt.state
+    const isTransition = level !== lastNotifiedState
+    lastNotifiedState = level
     showBanner(level)
+    if (!isTransition) return // 心跳（同状态）不重复响铃/通知/振动
     if (level === 'crying') {
       playSound()
       notify('🔴 宝宝在哭', '检测到持续哭闹')
       startTitleFlash()
       vibrate()
     } else {
+      stopTitleFlash() // 哭闹→活动时停止红色标题闪烁（防御性：正常路径由 calm 清除）
       notify('🟡 宝宝有活动', '检测到轻微活动')
     }
   }
@@ -129,6 +154,7 @@ export function useNotifier() {
     notifySupported,
     enable,
     disable,
+    dispose,
     onActivity,
     onBacklog,
   }

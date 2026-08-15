@@ -5,9 +5,9 @@
  * - 前 3s 预热忽略（亮度跳变）；光照事件（均匀大面积变化）不计入
  */
 import { createFrameDiff } from '../utils/frameDiff.mjs'
+import { CONFIG } from '../config.js'
 
-const SAMPLE_MS = 250
-const WARMUP_FRAMES = 12 // 3s @ 4fps
+const { sampleMs: SAMPLE_MS, warmupFrames: WARMUP_FRAMES } = CONFIG.detection
 
 export function useMotionDetector() {
   let timer = null
@@ -29,6 +29,8 @@ export function useMotionDetector() {
     warmup = WARMUP_FRAMES
     activeStreak = 0
     quietStreak = 0
+    lastTime = -1 // 重置冻结状态（避免重建后用上一会话的陈旧时间戳误判）
+    frozenCycles = 0
   }
 
   function start(video, sensitivity, handlers) {
@@ -40,20 +42,23 @@ export function useMotionDetector() {
     timer = setInterval(() => {
       if (document.hidden || !video?.videoWidth) return
       // 帧冻结保护：视频出帧停止（后台 tab / 摄像头故障）时画面静止，
-      // 不等于"宝宝安静"——跳过采样且不累计判定，保持当前状态
+      // 不等于"宝宝安静"——冻结帧立即跳过（不 analyze、不累计任何 streak），
+      // 避免 off-by-N：冻结的前几帧若落入差分逻辑会因画面相同误报安静
       if (video.currentTime === lastTime) {
         frozenCycles++
-        if (frozenCycles >= 4) return // 1s 无新帧 → 冻结
-      } else {
-        lastTime = video.currentTime
-        frozenCycles = 0
+        return
       }
+      lastTime = video.currentTime
+      frozenCycles = 0
       const r = diff.analyze(video)
       if (r.first) return
       if (warmup > 0) {
         warmup--
         return
       }
+      // 光照事件（均匀大面积变化）是中性帧：不累计 active 也不累计 quiet，
+      // 否则窗帘/阴影持续变化会误报"安静"并掩盖期间的真实运动
+      if (r.isLightChange) return
       if (r.isMotion) {
         activeStreak++
         quietStreak = 0

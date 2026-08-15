@@ -67,7 +67,7 @@ export function attachSignaling(server) {
         send(room.viewer, 'peer-left', { reason: 'camera-left' })
       }
     } else {
-      // 观看端断开 → 仅清槽位，房间保留
+      // 观看端断开 → 仅清槽位，房间保留（viewerSeq 保留，供重连时计算离线错过）
       room.viewer = null
       if (room.camera && room.camera !== ws) {
         send(room.camera, 'peer-left', { reason: 'viewer-left' })
@@ -98,7 +98,14 @@ export function attachSignaling(server) {
         }
 
         if (!rooms.has(code)) {
-          rooms.set(code, { code, camera: ws, viewer: null, activity: null, cameraSeq: 0, viewerSeq: 0 })
+          rooms.set(code, {
+            code,
+            camera: ws,
+            viewer: null,
+            activity: null,
+            cameraSeq: 0,
+            viewerSeq: 0,
+          })
         }
         sockets.set(ws, { code, role: 'camera' })
         send(ws, 'room-created', { code })
@@ -122,10 +129,14 @@ export function attachSignaling(server) {
         room.viewer = ws
         send(ws, 'room-joined', { ok: true, code })
         send(room.camera, 'peer-joined', {})
-        // 补发缓存的最新检测状态 + 离线错过提示
+        // 补发缓存的最新检测状态
         if (room.activity) send(ws, 'activity', room.activity)
-        const missed = room.cameraSeq - room.viewerSeq
-        if (missed > 0) send(ws, 'activity-backlog', { missed })
+        // 离线错过提示：仅本端重连（rejoin）时计算——viewerSeq 保留上次同步点，
+        // missed = 该端离线期间的事件数；首次加入/换观看端不误报
+        if (msg.rejoin) {
+          const missed = room.cameraSeq - room.viewerSeq
+          if (missed > 0) send(ws, 'activity-backlog', { missed })
+        }
         return
       }
 

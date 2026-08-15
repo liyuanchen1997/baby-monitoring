@@ -31,6 +31,18 @@ export const CONFIG = {
     },
   },
 
+  // ---- 检测器通用参数（模块 7/8 使用）----
+  detection: {
+    sampleMs: 250, // 动作检测采样间隔（4fps）
+    warmupFrames: 12, // 动作检测预热（3s @ 4fps）
+    analyzeMs: 100, // 哭声检测分析间隔（10Hz）
+    cryQuietStreak: 50, // 哭声解除：连续不达标帧数（5s）
+    voiceThreshold: 0.35, // 周期性（voicedness）判定阈值
+    maxGapFrames: 3, // 达标窗口内最大空隙（300ms）
+    lightChangeRatio: 0.6, // 整帧均匀大面积变化 → 光照事件（不计入动作）
+    eventMax: 10, // 拍摄端最近事件列表条数
+  },
+
   // ---- 重连（模块 5 使用）----
   reconnect: {
     wsBaseMs: 1000, wsMaxMs: 30_000, // L0 WS 指数退避
@@ -43,5 +55,13 @@ export const CONFIG = {
   notifier: {
     bannerTimeoutMs: 3 * 60_000, // 横幅超时自动清除
     activityHeartbeatMs: 30_000, // 非 calm 状态心跳间隔
+    titleFlashMs: 1_000, // 标题闪烁周期
+    chimeHz: 880, // 三连音频率
+    vibratePattern: [200, 100, 200], // Android 振动模式
+  },
+
+  // ---- 存储键 ----
+  storageKeys: {
+    sensitivity: 'bm-sensitivity',
   },
 }
