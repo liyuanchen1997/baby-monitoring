@@ -372,6 +372,5 @@ onUnmounted(() => {
 
 @media (min-width: 1024px) {
   .camera-view { max-width: 760px; padding-top: 32px; }
-  .code { font-size: 64px; }
 }
 </style>
