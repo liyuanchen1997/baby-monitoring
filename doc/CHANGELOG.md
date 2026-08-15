@@ -22,7 +22,7 @@
 - **新增**：`scripts/serve-cert.mjs` — 纯 HTTP 伺服 rootCA 供手机下载（绕过未信任页面禁止下载的问题），端口可被环境变量 PORT 覆盖、遇占用自动递增避让（最多 10 次）
 - **新增**：`scripts/dev.mjs` — 开发环境一键编排：证书检查 → 并行启动后端(:3443，模块 2 落地后生效)与前端(:5173) → 打印各设备访问清单；任一子进程退出即整体停止
 - **环境**：安装 mkcert v1.4.4（brew）；本机钥匙串授权在非交互终端下受限（提示用户可自行运行 `mkcert -install` 获得 macOS 绿锁，不影响手机端）
-- **验证**：证书 SAN 正确（DNS:localhost, IP:127.0.0.1, IP:192.168.31.184）；`--cacert rootCA.pem` 验证信任链完整 HTTP 200（模拟手机装 CA 后效果）；vite HTTPS 出页 200；serve-cert 端口避让（8080 被占用→8081）与 rootCA.pem 下载正常
+- **验证**：证书 SAN 正确（DNS:localhost, IP:127.0.0.1, IP:<局域网IP>）；`--cacert rootCA.pem` 验证信任链完整 HTTP 200（模拟手机装 CA 后效果）；vite HTTPS 出页 200；serve-cert 端口避让（8080 被占用→8081）与 rootCA.pem 下载正常
 
 ## 2026-08-15 · 模块 2（信令服务器与页面骨架）· v0.3.0
 
