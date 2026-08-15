@@ -109,6 +109,8 @@ function tryJoin() {
 onMounted(() => {
   connect()
   wakeLock.request()
+  window.addEventListener('keydown', onKeyDown)
+  window.addEventListener('keyup', onKeyUp)
 })
 
 watch(wsStatus, (s) => {
@@ -147,6 +149,35 @@ async function toggleRecord() {
   recorder.start(video)
 }
 
+// ---- PC 快捷键：S 截图 / R 录制 / F 全屏 / 空格按住说话 ----
+function toggleFullscreen() {
+  if (document.fullscreenElement) {
+    document.exitFullscreen().catch(() => {})
+  } else {
+    document.documentElement.requestFullscreen().catch(() => {})
+  }
+}
+
+function onKeyDown(e) {
+  if (e.repeat) return
+  const tag = document.activeElement?.tagName
+  if (tag === 'INPUT' || tag === 'TEXTAREA') return // 不拦截输入框
+  if (e.code === 'Space') {
+    e.preventDefault()
+    talk.press(pc.get())
+  } else if (e.key === 's' || e.key === 'S') {
+    onScreenshot()
+  } else if (e.key === 'r' || e.key === 'R') {
+    toggleRecord()
+  } else if (e.key === 'f' || e.key === 'F') {
+    toggleFullscreen()
+  }
+}
+
+function onKeyUp(e) {
+  if (e.code === 'Space') talk.release()
+}
+
 const badgeState = computed(() => {
   if (wsStatus.value === 'disconnected') return 'disconnected'
   if (wsStatus.value === 'connecting') return 'connecting'
@@ -157,6 +188,8 @@ const badgeState = computed(() => {
 
 onUnmounted(() => {
   clearInterval(retryTimer)
+  window.removeEventListener('keydown', onKeyDown)
+  window.removeEventListener('keyup', onKeyUp)
   offs.forEach((f) => f())
   talk.dispose()
   wakeLock.release()

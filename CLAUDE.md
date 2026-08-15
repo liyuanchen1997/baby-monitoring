@@ -12,7 +12,7 @@ WebRTC 实时监控网站应用：一部设备（拍摄端，手机/PC，放宝�
 - 后端：Node.js + Express（静态服务 + `/api/info`）+ ws（WebSocket 信令）
 - 媒体：WebRTC 点对点（拍摄端恒为唯一 offerer），STUN 仅用 Google 公共服务器，无 TURN
 - 二维码：`qrcode` 库
-- 依赖清单：`express`、`ws`、`qrcode`；devDeps：`vite`、`@vitejs/plugin-vue`、`vue`
+- 依赖清单：`express`、`ws`、`qrcode`；devDeps：`vite`、`@vitejs/plugin-vue`、`vue`、`playwright`、`@playwright/mcp`（自动化测试）
 
 ## 开发流程（重要约定）
 
@@ -47,7 +47,7 @@ WebRTC 实时监控网站应用：一部设备（拍摄端，手机/PC，放宝�
 - **重连三层独立状态机**：L0 WS 指数退避重连（带恢复码重建房）；L1 ICE restartIce/整体重建；L2 媒体冻结检测。
 - **录制全平台走 canvas 兜底路径**：iOS Safari 直录远程流有黑屏 bug。
 - **可调参数全部集中 `src/config.js`**：分辨率/码率/检测阈值/灵敏度三档预设。
-- **PC 端支持**：UI 响应式（≥1024px 桌面横向布局 / 移动竖屏大按钮 + 底部操作栏 + 安全区）；TalkButton 兼容 touch/mouse；PC 观看端快捷键（截图/录制/全屏/对讲）；PC 摄像头同样可作拍摄端。
+- **PC 端支持**：UI 响应式（≥1024px 桌面居中宽布局 / 移动竖屏大按钮 + 底部操作栏 + 安全区）；TalkButton 兼容 touch/mouse；PC 观看端快捷键（S 截图 / R 录制 / F 全屏 / 空格按住对讲）；PC 摄像头同样可作拍摄端。
 
 ## 开发命令
 
@@ -58,6 +58,7 @@ npm run dev          # 启动开发环境（server:3443 + vite:5173，自动检�
 npm run build        # 前端构建
 npm run start        # 生产模式（server 直接 serve dist）
 npm run smoke        # 信令生命周期冒烟测试
+npm run test:audio   # 音频分析纯函数单元测试
 npm run e2e          # 浏览器自动化冒烟（Playwright 模拟摄像头，双标签互看+对讲）
 ```
 
