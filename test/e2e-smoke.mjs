@@ -73,6 +73,15 @@ try {
   )
   assert('拍摄端本地预览画面', true)
 
+  // 二维码渲染 + URL 指向局域网观看入口
+  await pageA.waitForSelector('.qr canvas', { timeout: 10000 })
+  const qrOk = await pageA.evaluate(() => {
+    const c = document.querySelector('.qr canvas')
+    const url = document.querySelector('.qr-url')?.textContent ?? ''
+    return c?.width > 100 && url.includes('/?join=') && url.startsWith('https://')
+  })
+  assert('二维码渲染且 URL 指向观看入口', qrOk)
+
   // ---- 场景 2：观看端加入并收到实时画面 ----
   await pageB.goto(`https://localhost:5173/?join=${code}`)
   await pageB.waitForFunction(

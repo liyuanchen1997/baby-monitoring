@@ -98,3 +98,9 @@
 - **修复**（重要，对讲协商根治）：观看端 audio 通道在 answer 中恒为 recvonly，对讲音频发不出——headless Chrome 暴露（Safari 匹配碰巧成功掩盖了此 bug）。根因：协商前 addTransceiver 的 sendrecv 通道在 setRemoteDescription 时 m-line 匹配失败成孤儿，远端 audio m-line 匹配给了自动创建的 recvonly transceiver。修复：setRemoteDescription 后直接把远端 audio transceiver 的 direction 改为 sendrecv（单一通道双向，无 m-line 匹配不确定性）
 - **更新**：signaling 服务器新增 SDP m-line/方向调试日志（仅开发）
 - **验证**：e2e 6/6 通过（建房/本地预览/实时画面/对讲音频流/无错误提示/无控制台错误）
+
+## 2026-08-15 · 模块 6（二维码配对）· v0.7.0
+
+- **新增**：`src/components/QrOverlay.vue` — 二维码配对组件：qrcode 库 toCanvas 渲染；URL 内容 `${protocol}//${lanIp}:${port}/?join=<房间码>`（lanIp 来自 /api/info，拍摄端经 localhost 打开二维码仍指向局域网 IP）；深蓝模块白底高对比、URL 文本小字展示；房间码变化自动重渲染
+- **更新**：CameraView 房间卡集成 QrOverlay（房间码下方展示二维码）；?join= 预填入口模块 0 已具备（HomeView 自动识别）
+- **验证**：e2e 7/7 通过（新增二维码断言：canvas 渲染 >100px、URL 以 https:// 开头且含 /?join=）；真机扫码待验证（手机需先装 rootCA 才能直接打开）

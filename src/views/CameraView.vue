@@ -8,6 +8,7 @@ import { useWakeLock } from '../composables/useWakeLock.mjs'
 import { CONFIG } from '../config.js'
 import ConnectionBadge from '../components/ConnectionBadge.vue'
 import CameraPreview from '../components/CameraPreview.vue'
+import QrOverlay from '../components/QrOverlay.vue'
 
 const talkAudio = ref(null) // 隐藏 audio：外放观看端对讲声音
 const previewRef = ref(null)
@@ -211,6 +212,7 @@ onUnmounted(() => {
       <section v-if="roomCode" class="room-card glass">
         <p class="label">房间码</p>
         <p class="code num">{{ roomCode }}</p>
+        <QrOverlay :code="roomCode" />
         <p v-if="peerJoined" class="peer-line">
           <span class="halo live"></span> 观看端已连接
         </p>
