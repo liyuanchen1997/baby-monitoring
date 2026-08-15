@@ -124,3 +124,11 @@
 - **修复**：motion detector 帧冻结保护——视频出帧停止（后台 tab/摄像头故障）时画面静止 ≠ 宝宝安静，跳过采样不累计判定，防止误报 calm
 - **测试基础设施**：e2e 改为双独立 context（模拟两台设备，避免后台 tab 冻结）；`test/gen-fake-cam.mjs` 生成确定性 fake 摄像头视频（120px 移动方块 y4m，修复 Buffer 引用拷贝 bug——原版所有帧为同一内存导致画面静止），Chromium 默认测试图案在某些实例输出静止帧导致 flaky，改用 `--use-file-for-fake-video-capture` 后完全确定
 - **验证**：e2e 9/9 稳定通过（连续 5 次）；修复前 flaky 根因：默认 fake 图案静止帧 + 同 context 多 tab 后台冻结
+
+## 2026-08-15 · 模块 9（打磨与收尾）+ 检测状态机修复 · v1.0.0
+
+- **修复**（重要）：`useActivityMonitor.stop()` 不重置 `lastReported` —— 停止监控再开始后，检测到与上次相同的状态（如 moving）被 report() 判重跳过，观看端收不到迁移提示（仅靠 30s 心跳兜底）。修复：stop() 重置 lastReported 与 state 为 calm（停止再开始 = 新检测会话）
+- **更新**：e2e 支持 `E2E_PORT` 环境变量（验证生产模式）、失败分支输出状态时间线诊断
+- **验证**：dev 模式 e2e 5/5 通过、生产模式（build + start :3443）e2e 3/3 通过；生产链路全通（静态服务 200 / SPA fallback / api/info / 信令 WS pong）；三视口（390/768/1440）无横向溢出
+- **验证**：`npm run build` 产物 123KB JS（gzip 48KB）
+- 全部 9 个模块开发完成，进入真机统一验证阶段

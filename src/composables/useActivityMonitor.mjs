@@ -77,6 +77,10 @@ export function useActivityMonitor({ sendActivity, heartbeatMs = CONFIG.notifier
     motion.stop()
     cry.stop()
     clearInterval(heartbeatTimer)
+    // 停止再开始 = 新检测会话：重置状态与上报基准，
+    // 否则重启后首次检测到同状态会被 report() 判重跳过（只靠 30s 心跳兜底）
+    lastReported = 'calm'
+    state.value = 'calm'
   }
 
   return { state, events, sensitivityLevel, start, setSensitivity, setTalkActive, stop }

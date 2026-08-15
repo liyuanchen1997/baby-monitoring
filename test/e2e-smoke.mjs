@@ -9,6 +9,10 @@ import { chromium } from 'playwright'
 import { execSync, spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 
+// 目标端口：默认 dev(5173)，可 E2E_PORT=3443 验证生产模式
+const PORT = process.env.E2E_PORT || '5173'
+const ORIGIN = `https://localhost:${PORT}`
+
 // 生成确定性 fake 摄像头视频（默认测试图案可能输出静止帧导致动作检测 flaky）
 const FAKE_CAM = '/tmp/fake-cam.y4m'
 if (!fs.existsSync(FAKE_CAM)) {
@@ -30,7 +34,7 @@ function assert(name, cond) {
 // 确保 dev 在跑
 function ensureDev() {
   try {
-    execSync('curl -sk -o /dev/null -w "%{http_code}" https://localhost:5173/', {
+    execSync('curl -sk -o /dev/null -w "%{http_code}" ' + ORIGIN + '/', {
       timeout: 5000,
     })
     return
@@ -51,7 +55,7 @@ const browser = await chromium.launch({
     '--use-file-for-fake-video-capture=' + FAKE_CAM, // 确定性运动画面
     '--use-fake-ui-for-media-stream', // 自动允许权限
     // ignoreHTTPSErrors 只跳过证书校验，仍需把源标记为安全上下文才能用 gUM
-    '--unsafely-treat-insecure-origin-as-secure=https://localhost:5173',
+    '--unsafely-treat-insecure-origin-as-secure=' + ORIGIN,
   ],
 })
 
@@ -68,7 +72,7 @@ for (const p of [pageA, pageB]) {
 
 try {
   // ---- 场景 1：拍摄端建房 + 开始监控 ----
-  await pageA.goto('https://localhost:5173')
+  await pageA.goto(ORIGIN)
   await pageA.click('text=开始监控') // HomeView → 拍摄端视图
   await pageA.waitForSelector('.code', { timeout: 10000 })
   const code = (await pageA.textContent('.code')).trim()
@@ -102,7 +106,7 @@ try {
   assert('动作检测识别画面运动', true)
 
   // ---- 场景 2：观看端加入并收到实时画面 ----
-  await pageB.goto(`https://localhost:5173/?join=${code}`)
+  await pageB.goto(`${ORIGIN}/?join=${code}`)
   await pageB.waitForFunction(
     () => document.querySelector('.stage video')?.videoWidth > 0,
     { timeout: 20000 },
@@ -127,18 +131,29 @@ try {
   await pageB.waitForTimeout(500)
 
   // ---- 场景 5：观看端提醒链路 ----
-  // 拍摄端自场景 1 起持续 moving（fake camera 运动图案）→ 每 30s 心跳上报
-  // 开提醒后最多 30s 内收到 moving 心跳 → 横幅出现（不重启拍摄端，避免设备重获抖动）
+  // 重启拍摄端检测器（确定性 y4m 下设备重获稳定）→ 状态机重置 → moving 迁移上报 → 横幅
   await pageB.locator('.btn.icon-btn').first().click() // 🔔 开启提醒
+  await pageA.click('.btn-danger') // 停止
+  await pageA.waitForSelector('.controls .btn-primary', { timeout: 10000 }) // 等按钮切换
+  await pageA.click('.controls .btn-primary') // 重新开始
   try {
-    await pageB.waitForSelector('.alert', { timeout: 45000 })
+    await pageB.waitForSelector('.alert', { timeout: 30000 })
     assert('观看端收到检测提醒横幅', true)
   } catch (e) {
-    const diag = await pageA.evaluate(
-      () => document.querySelector('.activity .state-label')?.textContent ?? '无检测徽标',
-    )
     const bell = await pageB.evaluate(() => (document.querySelector('.bell-on') ? 'on' : 'off'))
-    console.error(`  诊断: 拍摄端状态=${diag} 提醒=${bell}`)
+    const timeline = []
+    for (let i = 0; i < 6; i++) {
+      const s = await pageA.evaluate(
+        () => document.querySelector('.activity .state-label')?.textContent ?? '无',
+      )
+      const v = await pageA.evaluate(() => {
+        const el = document.querySelector('.preview video')
+        return el ? `t=${el.currentTime.toFixed(1)}` : '无video'
+      })
+      timeline.push(`${i * 2}s:${s}(${v})`)
+      await pageA.waitForTimeout(2000)
+    }
+    console.error(`  诊断: 提醒=${bell} 时间线=${timeline.join(' ')}`)
     throw e
   }
 
