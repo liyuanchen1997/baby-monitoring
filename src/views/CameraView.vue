@@ -230,6 +230,7 @@ onUnmounted(() => {
 
     <!-- 房间码：紧凑单行，置于头部下方 -->
     <nav v-if="roomCode" class="room-bar glass">
+      <span class="room-label muted">房间码</span>
       <span class="code num">{{ roomCode }}</span>
       <span v-if="peerJoined" class="peer">
         <span class="halo live"></span>已连接
@@ -313,11 +314,13 @@ onUnmounted(() => {
   gap: 12px;
   padding: 8px 14px;
 }
+.room-label { font-size: 13px; }
 .code {
-  font-size: 22px;
+  font-size: 30px;
   font-weight: 700;
   color: var(--primary);
   letter-spacing: 0.12em;
+  line-height: 1;
 }
 .peer {
   display: inline-flex;

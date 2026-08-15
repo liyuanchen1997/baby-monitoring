@@ -70,6 +70,10 @@ watch(() => props.code, render)
   padding: 14px;
   background: #fff; /* 二维码白底保证识别率，玻璃边框外圈 */
   border-radius: var(--radius-md);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
 }
 canvas { display: block; width: 200px; height: 200px; }
 .qr-url {
