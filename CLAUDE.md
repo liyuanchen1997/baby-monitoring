@@ -58,6 +58,7 @@ npm run dev          # 启动开发环境（server:3443 + vite:5173，自动检�
 npm run build        # 前端构建
 npm run start        # 生产模式（server 直接 serve dist）
 npm run smoke        # 信令生命周期冒烟测试
+npm run e2e          # 浏览器自动化冒烟（Playwright 模拟摄像头，双标签互看+对讲）
 ```
 
 ## 手机证书安装要点（详见 README）

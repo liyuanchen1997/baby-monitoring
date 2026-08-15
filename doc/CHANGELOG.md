@@ -91,3 +91,10 @@
 - **修复**：ViewerView.ensurePeer 重复创建 PC（create 后状态仍 'new'，每次 offer/join 都重建）→ 增加 pcCreated 标志
 - **新增**：useTalk 调试日志（[talk] press 输出 pc 状态与 transceiver 列表）
 - **验证**：Safari 按住说话通过（matched sender: true, direction: sendrecv）
+
+## 2026-08-15 · 自动化测试基础设施 + 对讲协商根治 · v0.6.2
+
+- **新增**：Playwright 自动化测试基础设施——`@playwright/mcp`（对话内控制浏览器，需重启会话生效）+ playwright 库（Chromium 已下载）；`npm run e2e` 跑 `test/e2e-smoke.mjs`：模拟摄像头/麦克风（fake device）、自动验证双标签互看/按住说话/控制台错误，6 项断言
+- **修复**（重要，对讲协商根治）：观看端 audio 通道在 answer 中恒为 recvonly，对讲音频发不出——headless Chrome 暴露（Safari 匹配碰巧成功掩盖了此 bug）。根因：协商前 addTransceiver 的 sendrecv 通道在 setRemoteDescription 时 m-line 匹配失败成孤儿，远端 audio m-line 匹配给了自动创建的 recvonly transceiver。修复：setRemoteDescription 后直接把远端 audio transceiver 的 direction 改为 sendrecv（单一通道双向，无 m-line 匹配不确定性）
+- **更新**：signaling 服务器新增 SDP m-line/方向调试日志（仅开发）
+- **验证**：e2e 6/6 通过（建房/本地预览/实时画面/对讲音频流/无错误提示/无控制台错误）

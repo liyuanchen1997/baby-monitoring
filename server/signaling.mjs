@@ -136,6 +136,13 @@ export function attachSignaling(server) {
         if (!room) return
         const peer = peerOf(room, ws)
         if (peer) {
+          if (msg.type === 'offer' || msg.type === 'answer') {
+            const dirs = msg.sdp
+              .split('\n')
+              .filter((l) => /^(m=|a=send|a=recv|a=inactive)/.test(l))
+              .join(' | ')
+            log(msg.type, 'SDP:', dirs)
+          }
           send(peer, msg.type, msg.type === 'ice' ? { candidate: msg.candidate } : { sdp: msg.sdp })
         }
         return

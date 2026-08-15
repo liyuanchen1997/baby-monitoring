@@ -13,9 +13,11 @@ export function usePeerConnection() {
   const iceState = ref('new') // new|checking|connected|completed|disconnected|failed|closed
   const everConnected = ref(false) // 本次会话是否成功建立过连接（AP 隔离判定用）
   let pc = null
+  let audioSendPrepared = false // 对讲发送通道是否已预留（跨协商保持）
 
   function create({ onIceCandidate, onStateChange, onTrack } = {}) {
     if (pc) pc.close() // 重建前先释放旧连接，避免泄漏
+    audioSendPrepared = false
     pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] })
     pc.onicecandidate = (e) => {
       if (e.candidate) onIceCandidate?.(e.candidate.toJSON())
@@ -50,21 +52,26 @@ export function usePeerConnection() {
     return offer
   }
 
-  /** 观看端：接收 offer → 预留对讲音频通道 → 生成 answer */
+  /**
+   * 观看端：预留对讲音频发送通道（必须在 setRemoteDescription 之前调用，
+   * 否则新 transceiver 无对应 m-line，createAnswer 会生成错位的新 m-line）
+   */
+  function prepareAudioSend() {
+    if (audioSendPrepared || !pc) return
+    pc.addTransceiver('audio', { direction: 'sendrecv' })
+    audioSendPrepared = true
+  }
+
+  /**
+   * 观看端：接收 offer → 生成 answer
+   * 把远端 audio m-line 对应的 transceiver 设为 sendrecv（同时承担对讲发送），
+   * 单一 audio 通道双向，避免协商前 addTransceiver 的 m-line 匹配不确定性
+   */
   async function handleOffer(sdp) {
     await pc.setRemoteDescription({ type: 'offer', sdp })
-    // sendrecv：接收拍摄端音频 + 预留对讲发送通道（模块 4 用 replaceTrack 填充）
-    // 已有音频发送通道（重协商时）则复用，避免 transceiver 累积
-    // 用 receiver.track.kind 判断（sender.kind 在 Safari 未实现）
-    const hasAudioSender = pc
-      .getTransceivers()
-      .some(
-        (t) =>
-          t.receiver?.track?.kind === 'audio' &&
-          ['sendrecv', 'sendonly'].includes(t.direction),
-      )
-    if (!hasAudioSender) {
-      pc.addTransceiver('audio', { direction: 'sendrecv' })
+    const audioTx = pc.getTransceivers().find((t) => t.receiver?.track?.kind === 'audio')
+    if (audioTx && !['sendrecv', 'sendonly'].includes(audioTx.direction)) {
+      audioTx.direction = 'sendrecv'
     }
     const answer = await pc.createAnswer()
     await pc.setLocalDescription(answer)
@@ -126,6 +133,7 @@ export function usePeerConnection() {
     iceState,
     everConnected,
     create,
+    prepareAudioSend,
     makeOffer,
     handleOffer,
     handleAnswer,

@@ -12,7 +12,8 @@
     "start": "node server/index.mjs",
     "cert": "node scripts/cert.mjs",
     "cert:serve": "node scripts/serve-cert.mjs",
-    "smoke": "node test/signaling-smoke.mjs"
+    "smoke": "node test/signaling-smoke.mjs",
+    "e2e": "node test/e2e-smoke.mjs"
   },
   "dependencies": {
     "express": "^5.2.1",
@@ -20,7 +21,9 @@
     "ws": "^8.21.3"
   },
   "devDependencies": {
+    "@playwright/mcp": "^0.0.79",
     "@vitejs/plugin-vue": "^6.0.8",
+    "playwright": "^1.63.0-alpha-2026-08-05",
     "vite": "^8.2.1",
     "vue": "^3.5.41"
   }
