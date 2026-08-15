@@ -33,23 +33,23 @@ const LEVELS = [
 .picker {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
 }
-.picker-label { font-size: 13px; }
+.picker-label { font-size: 12px; }
 .seg {
   display: inline-flex;
   background: rgba(11, 16, 38, 0.5);
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
-  padding: 3px;
+  padding: 2px;
 }
 .seg-btn {
   border: none;
   background: transparent;
   color: var(--muted);
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
-  padding: 5px 14px;
+  padding: 4px 10px;
   border-radius: var(--radius-pill);
   cursor: pointer;
   transition: background 0.15s, color 0.15s;

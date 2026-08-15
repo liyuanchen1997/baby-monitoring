@@ -246,11 +246,14 @@ onUnmounted(() => {
       <CameraPreview ref="previewRef" :stream="camera.stream.value" />
 
       <template v-if="cameraActive">
-        <ActivityBadge :state="activity.state.value" :events="activity.events.value" />
-        <SensitivityPicker
-          :model-value="activity.sensitivityLevel.value"
-          @update:model-value="activity.setSensitivity"
-        />
+        <ActivityBadge :state="activity.state.value" :events="activity.events.value">
+          <template #extra>
+            <SensitivityPicker
+              :model-value="activity.sensitivityLevel.value"
+              @update:model-value="activity.setSensitivity"
+            />
+          </template>
+        </ActivityBadge>
       </template>
 
       <p v-if="error" class="error">{{ error }}</p>

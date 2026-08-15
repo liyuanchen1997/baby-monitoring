@@ -27,6 +27,9 @@ function fmt(ts) {
     <div class="now">
       <span class="halo" :class="stateMeta.halo"></span>
       <span class="state-label">{{ stateMeta.label }}</span>
+      <div class="now-extra">
+        <slot name="extra" />
+      </div>
     </div>
     <ul v-if="events.length" class="events">
       <li v-for="(e, i) in events" :key="i" class="muted">
@@ -47,6 +50,7 @@ function fmt(ts) {
   font-weight: 600;
 }
 .state-label { color: var(--text); }
+.now-extra { margin-left: auto; }
 .events {
   list-style: none;
   margin-top: 10px;
