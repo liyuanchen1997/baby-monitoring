@@ -5,14 +5,20 @@ import { useSignaling } from '../composables/useSignaling.mjs'
 import { useCamera } from '../composables/useCamera.mjs'
 import { usePeerConnection } from '../composables/usePeerConnection.mjs'
 import { useWakeLock } from '../composables/useWakeLock.mjs'
+import { useActivityMonitor } from '../composables/useActivityMonitor.mjs'
 import { CONFIG } from '../config.js'
 import ConnectionBadge from '../components/ConnectionBadge.vue'
 import CameraPreview from '../components/CameraPreview.vue'
 import QrOverlay from '../components/QrOverlay.vue'
+import ActivityBadge from '../components/ActivityBadge.vue'
+import SensitivityPicker from '../components/SensitivityPicker.vue'
 
 const talkAudio = ref(null) // 隐藏 audio：外放观看端对讲声音
 const previewRef = ref(null)
 const wakeLock = useWakeLock()
+const activity = useActivityMonitor({
+  sendActivity: (payload) => send('activity', payload),
+})
 
 const { status: wsStatus, connect, send, on, close } = useSignaling()
 const camera = useCamera()
@@ -117,6 +123,11 @@ function stopMediaWatch() {
 onMounted(() => {
   connect()
   wakeLock.request()
+  // 对讲播放期间抑制哭声误报（家长声音经拍摄端外放会被麦克风回采）
+  if (talkAudio.value) {
+    talkAudio.value.addEventListener('play', () => activity.setTalkActive(true))
+    talkAudio.value.addEventListener('pause', () => activity.setTalkActive(false))
+  }
 })
 
 watch(wsStatus, (s) => {
@@ -135,7 +146,11 @@ async function startCamera() {
   cameraActive.value = !!camera.stream.value
   if (!cameraActive.value) error.value = camera.error.value || '摄像头启动失败'
   busy.value = false
-  if (cameraActive.value) startMediaWatch()
+  if (cameraActive.value) {
+    startMediaWatch()
+    // 动作/哭声检测（在"开始监控"手势内：iOS 音频解锁）
+    activity.start(previewRef.value?.video, camera.stream.value)
+  }
   maybeNegotiate()
   // iOS 音频解锁：播放远端对讲流须在用户手势内（"开始监控"点击）
   if (talkAudio.value) {
@@ -147,6 +162,7 @@ function stopCamera() {
   camera.stop()
   cameraActive.value = false
   stopMediaWatch()
+  activity.stop()
   if (talkAudio.value) talkAudio.value.srcObject = null
   pc.close()
 }
@@ -167,7 +183,11 @@ async function maybeNegotiate() {
       onStateChange: onPcState,
       // 远端流 = 观看端对讲声音 → 拍摄端扬声器外放
       onTrack: (stream) => {
-        if (talkAudio.value) talkAudio.value.srcObject = stream
+        if (talkAudio.value) {
+          talkAudio.value.srcObject = stream
+          // 对讲期间抑制哭声误报（家长声音经外放回采）
+          activity.setTalkActive(!talkAudio.value.paused)
+        }
       },
     })
     const offer = await pc.makeOffer(camera.stream.value)
@@ -193,6 +213,7 @@ onUnmounted(() => {
   stopMediaWatch()
   offs.forEach((f) => f())
   camera.stop()
+  activity.stop()
   wakeLock.release()
   pc.close()
   close()
@@ -222,6 +243,14 @@ onUnmounted(() => {
         </p>
       </section>
       <p v-else class="muted center">正在创建房间…</p>
+
+      <template v-if="cameraActive">
+        <ActivityBadge :state="activity.state.value" :events="activity.events.value" />
+        <SensitivityPicker
+          :model-value="activity.sensitivityLevel.value"
+          @update:model-value="activity.setSensitivity"
+        />
+      </template>
 
       <p v-if="error" class="error">{{ error }}</p>
     </main>

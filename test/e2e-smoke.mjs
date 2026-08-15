@@ -82,6 +82,16 @@ try {
   })
   assert('二维码渲染且 URL 指向观看入口', qrOk)
 
+  // 动作检测：fake camera 有持续运动图案 → 状态应从「安静」变为「轻微活动」
+  await pageA.waitForFunction(
+    () => {
+      const label = document.querySelector('.activity .state-label')?.textContent ?? ''
+      return label.includes('活动') || label.includes('哭闹')
+    },
+    { timeout: 20000 },
+  )
+  assert('动作检测识别画面运动', true)
+
   // ---- 场景 2：观看端加入并收到实时画面 ----
   await pageB.goto(`https://localhost:5173/?join=${code}`)
   await pageB.waitForFunction(

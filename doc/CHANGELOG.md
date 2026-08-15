@@ -104,3 +104,14 @@
 - **新增**：`src/components/QrOverlay.vue` — 二维码配对组件：qrcode 库 toCanvas 渲染；URL 内容 `${protocol}//${lanIp}:${port}/?join=<房间码>`（lanIp 来自 /api/info，拍摄端经 localhost 打开二维码仍指向局域网 IP）；深蓝模块白底高对比、URL 文本小字展示；房间码变化自动重渲染
 - **更新**：CameraView 房间卡集成 QrOverlay（房间码下方展示二维码）；?join= 预填入口模块 0 已具备（HomeView 自动识别）
 - **验证**：e2e 7/7 通过（新增二维码断言：canvas 渲染 >100px、URL 以 https:// 开头且含 /?join=）；真机扫码待验证（手机需先装 rootCA 才能直接打开）
+
+## 2026-08-15 · 模块 7（动作/哭闹检测）· v0.8.0
+
+- **新增**：`src/utils/frameDiff.mjs` — 帧间差分：160x120 灰度化、8x6 网格单元差分（单元变化占比 >15% 记 changedCell）、整帧 >60% 判光照事件不计入
+- **新增**：`src/utils/audio.mjs` — 频带能量 bandEnergy（getFloatFrequencyData + Safari byte 降级）、周期性 voicedness（归一化自相关，100-600Hz）、自适应噪声底 NoiseFloor（60s 窗低分位 EMA）
+- **新增**：`useMotionDetector` — 4fps 采样、3s 预热、连续 N 帧迟滞判定（onActive/onQuiet）、灵敏度即时重建
+- **新增**：`useCryDetector` — 100ms 分析帧：能量-噪声底 + voicedness >0.35 达标；滚动窗口（cryWindowMs 内 ≥70% 达标且空隙 ≤300ms）判哭闹；连续 5s 不达标解除；对讲时阈值 +6dB（talkActive 抑制误报）
+- **新增**：`useActivityMonitor` — 状态机 calm/moving/crying（优先级 crying > moving）、状态迁移上报（seq 自增）+ 非 calm 30s 心跳、灵敏度三档 localStorage 持久化、最近 10 条事件
+- **新增**：组件 — `ActivityBadge`（三色呼吸点 + 最近事件时间戳列表）、`SensitivityPicker`（低/中/高胶囊分段）
+- **更新**：CameraView — 开始监控时启动双检测器（手势内创建 AudioContext 解锁 iOS）、对讲播放自动 talkActive 抑制、停止监控时释放
+- **验证**：e2e 8/8 通过（新增"动作检测识别画面运动"——fake camera 运动图案触发 moving）；`test:audio-unit` 7/7（bandEnergy 0.694、voicedness 周期 0.94 vs 白噪 0.05、噪声底收敛与抗突发）；真机哭声/光照/对讲误报测试留待统一验证

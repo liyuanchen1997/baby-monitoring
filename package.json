@@ -13,7 +13,8 @@
     "cert": "node scripts/cert.mjs",
     "cert:serve": "node scripts/serve-cert.mjs",
     "smoke": "node test/signaling-smoke.mjs",
-    "e2e": "node test/e2e-smoke.mjs"
+    "e2e": "node test/e2e-smoke.mjs",
+    "test:audio": "node test/audio-unit.mjs"
   },
   "dependencies": {
     "express": "^5.2.1",
