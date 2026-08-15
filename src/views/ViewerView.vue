@@ -1,6 +1,6 @@
 <script setup>
 // 观看端视图：加入房间 → 接收拍摄端 offer 应答 → 播放远程画面
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useSignaling } from '../composables/useSignaling.mjs'
 import { usePeerConnection } from '../composables/usePeerConnection.mjs'
 import { CONFIG } from '../config.js'
@@ -77,6 +77,8 @@ function tryJoin() {
     send('join-room', { code: props.joinCode })
   }
 }
+
+onMounted(() => connect())
 
 watch(wsStatus, (s) => {
   if (s === 'connected') tryJoin()

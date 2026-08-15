@@ -21,6 +21,8 @@ export function attachSignaling(server) {
   const wss = new WebSocketServer({ server, path: '/ws' })
   const rooms = new Map() // code -> { code, camera, viewer, activity, cameraSeq, viewerSeq }
   const sockets = new Map() // ws -> { code, role: 'camera' | 'viewer' }（反向索引，断开清理用）
+  // 开发辅助日志
+  const log = (...a) => console.log(`[ws] ${new Date().toLocaleTimeString()}`, ...a)
 
   function randomCode() {
     let code
@@ -55,6 +57,7 @@ export function attachSignaling(server) {
     sockets.delete(ws)
     const room = rooms.get(entry.code)
     if (!room) return
+    log(entry.role, '断开', entry.code)
 
     if (entry.role === 'camera') {
       // 拍摄端断开 → 删除整个房间，通知观看端
@@ -80,6 +83,7 @@ export function attachSignaling(server) {
       case 'create-room': {
         // 重复建房（如重连后）先退出旧房间，保证幂等
         if (entry) cleanup(ws)
+        log('建房请求', { code: msg.code ?? null })
 
         let code = msg.code
         if (code) {
@@ -98,11 +102,13 @@ export function attachSignaling(server) {
         }
         sockets.set(ws, { code, role: 'camera' })
         send(ws, 'room-created', { code })
+        log('房间创建', code)
         return
       }
 
       case 'join-room': {
         const code = msg.code
+        log('加入请求', code)
         const room = rooms.get(code)
         if (!room) {
           send(ws, 'room-joined', { ok: false, reason: 'room-not-found' })
@@ -158,6 +164,7 @@ export function attachSignaling(server) {
   }
 
   wss.on('connection', (ws) => {
+    log('连接建立')
     ws.isAlive = true
     ws.on('pong', () => {
       ws.isAlive = true

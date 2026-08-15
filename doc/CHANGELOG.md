@@ -49,3 +49,9 @@
 - **新增**：组件 — `CameraPreview`（本地回显，muted 防啸叫，16:9 cover）、`ViewerStage`（远程画面，muted+autoplay 先播 +「点击开启声音」遮罩处理 iOS 手势策略）、`ConnectionBadge`（5 态呼吸光环徽标）
 - **更新**：CameraView — 开始监控/停止/翻转、观看端加入后自动协商推流（gUM 与 peer-joined 双条件齐备）、重连恢复码重建；ViewerView — join 成功创建 PC、应答 offer、接收远端流播放；退出按钮（App.vue 监听回首页）；两视图按夜灯守护规范重构（琥珀等宽房间码、玻璃控制栏、胶囊按钮）
 - **验证**：8 个新/改文件 vite 编译 200 无错误；真实浏览器双标签互看待用户验证（本机 Chrome 需先处理证书警告或 `mkcert -install`）
+
+## 2026-08-15 · 修复 · v0.4.1
+
+- **修复**（重要）：CameraView/ViewerView 从未调用 `connect()` —— useSignaling 的连接函数未在视图挂载时执行，WebSocket 始终未发起，页面永远"未连接"。模块 2/3 验证仅覆盖编译与 smoke（测试直连服务器，不经过前端 connect），真实浏览器测试才暴露。已在两视图 onMounted 中调用 connect()，真机验证通过
+- **新增**：server/signaling.mjs 开发辅助日志（[ws] 连接建立/建房/加入/断开），便于排障；log 函数置于模块级避免作用域问题
+- **验证**：真浏览器链路通——拍摄端建房 365548 → 观看端加入成功（服务端日志确认）

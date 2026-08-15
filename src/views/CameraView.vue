@@ -1,6 +1,6 @@
 <script setup>
 // 拍摄端视图：建房 → 开始监控（gUM）→ 观看端加入后自动协商推流
-import { ref, computed, watch, onUnmounted } from 'vue'
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useSignaling } from '../composables/useSignaling.mjs'
 import { useCamera } from '../composables/useCamera.mjs'
 import { usePeerConnection } from '../composables/usePeerConnection.mjs'
@@ -38,6 +38,8 @@ let offs = [
     error.value = m.message
   }),
 ]
+
+onMounted(() => connect())
 
 watch(wsStatus, (s) => {
   if (s === 'connected' && !roomCode.value) send('create-room')
