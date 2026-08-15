@@ -44,7 +44,7 @@ macOS 本机:      https://localhost:5173
 
 ### 4. 手机安装证书（首次，一次性）
 
-另一终端运行 `npm run cert:serve`，手机浏览器访问 `http://<电脑IP>:8080` 下载 rootCA 并安装：
+另一终端运行 `npm run cert:serve`，手机浏览器访问终端打印的地址（默认 `http://<电脑IP>:8080`，被占用时自动递增端口）下载 rootCA 并安装：
 
 - **iPhone**：下载描述文件 → 设置里安装 → 设置 → 通用 → 关于本机 → 证书信任设置 → 开启完全信任
 - **Android**：Chrome 默认不信任用户安装的 CA，**请用 Firefox** 访问（或 Chrome 打开 `chrome://flags/#unsafely-treat-insecure-origin-as-secure`，仅开发用）
