@@ -29,7 +29,8 @@ WebRTC 实时监控网站应用：一部设备（拍摄端，手机/PC，放宝�
 | 0 项目初始化与文档 | 骨架 + CLAUDE.md/README.md/doc 三件套 | dev 出页 | ✅ |
 | 1 HTTPS 证书与环境 | cert.mjs/serve-cert.mjs/lan.mjs/dev.mjs，mkcert | macOS 绿锁、LAN IP 可访问 | ✅ |
 | 2 信令服务器与页面骨架 | signaling.mjs、useSignaling.mjs、三视图骨架 | smoke 测试通过 | ✅ |
-| 3 媒体链路 | 摄像头采集、PeerConnection、视频视图、连接状态 | 双标签页互看 | ⬜ |
+| 3 媒体链路 | 摄像头采集、PeerConnection、视频视图、连接状态 | 双标签页互看 | ✅ 待真机验证 |
+| 4 对讲/截图/录制 | TalkButton、useScreenshot、useRecorder | 双端功能可用 | ⬜ |
 | 3 媒体链路 | 摄像头采集、PeerConnection、视频视图、连接状态 | 双标签页互看 | ⬜ |
 | 4 对讲/截图/录制 | TalkButton、useScreenshot、useRecorder | 双端功能可用 | ⬜ |
 | 5 连接保障 | Wake Lock、重连分层（WS/ICE/媒体）、AP 隔离提示 | 飞行模式重连 | ⬜ |

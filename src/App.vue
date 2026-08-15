@@ -27,5 +27,5 @@ function join(code) {
 <template>
   <HomeView v-if="mode === 'home'" @start-camera="startCamera" @join="join" />
   <CameraView v-else-if="mode === 'camera'" />
-  <ViewerView v-else :join-code="joinCode" />
+  <ViewerView v-else :join-code="joinCode" @leave="mode = 'home'" />
 </template>

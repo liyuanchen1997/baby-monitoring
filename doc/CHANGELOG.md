@@ -41,3 +41,11 @@
 - **更新**：`src/style.css` 全面重构为设计 token 体系（色彩/字体/圆角/辉光变量 + 胶囊按钮 + 毛玻璃面板 + 等宽数字 + 呼吸/告警动画，respect prefers-reduced-motion）
 - **更新**：doc/设计文档.md 新增 §14「UI 设计规范（夜灯守护）」；doc/需求文档.md 新增 NFR-5 UI 设计
 - 后续模块所有视图按此规范实现
+
+## 2026-08-15 · 模块 3（媒体链路）· v0.4.0
+
+- **新增**：`src/composables/useCamera.mjs` — getUserMedia 采集（后置优先/720p/24fps/AEC+降噪+自动增益）、前后置翻转（重建采集流）、错误文案映射（权限/设备/占用）
+- **新增**：`src/composables/usePeerConnection.mjs` — RTCPeerConnection 封装：拍摄端恒为 offerer / 观看端只应答（addTransceiver audio sendrecv 预留对讲通道）、trickle ICE 双向转发、offer 后立即施加 maxBitrate 1.5Mbps（setParameters 失败降级）、ontrack 收流（iOS 空 streams 兜底）
+- **新增**：组件 — `CameraPreview`（本地回显，muted 防啸叫，16:9 cover）、`ViewerStage`（远程画面，muted+autoplay 先播 +「点击开启声音」遮罩处理 iOS 手势策略）、`ConnectionBadge`（5 态呼吸光环徽标）
+- **更新**：CameraView — 开始监控/停止/翻转、观看端加入后自动协商推流（gUM 与 peer-joined 双条件齐备）、重连恢复码重建；ViewerView — join 成功创建 PC、应答 offer、接收远端流播放；退出按钮（App.vue 监听回首页）；两视图按夜灯守护规范重构（琥珀等宽房间码、玻璃控制栏、胶囊按钮）
+- **验证**：8 个新/改文件 vite 编译 200 无错误；真实浏览器双标签互看待用户验证（本机 Chrome 需先处理证书警告或 `mkcert -install`）
