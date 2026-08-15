@@ -6,8 +6,14 @@
  * 运行: npm run e2e
  */
 import { chromium } from 'playwright'
-import { execSync, spawn } from 'node:child_process'
+import { execSync, spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
+
+// 生成确定性 fake 摄像头视频（默认测试图案可能输出静止帧导致动作检测 flaky）
+const FAKE_CAM = '/tmp/fake-cam.y4m'
+if (!fs.existsSync(FAKE_CAM)) {
+  spawnSync('node', ['test/gen-fake-cam.mjs', FAKE_CAM], { stdio: 'inherit' })
+}
 
 let passed = 0
 let failed = 0
@@ -38,10 +44,11 @@ function ensureDev() {
 ensureDev()
 
 const browser = await chromium.launch({
-  headless: true,
+  headless: process.env.E2E_HEADFUL !== '1', // E2E_HEADFUL=1 时弹出可见浏览器窗口
   ignoreHTTPSErrors: true, // 自签证书
   args: [
-    '--use-fake-device-for-media-stream', // 模拟摄像头+麦克风
+    '--use-fake-device-for-media-stream', // 模拟麦克风（视频源被下面的文件参数覆盖）
+    '--use-file-for-fake-video-capture=' + FAKE_CAM, // 确定性运动画面
     '--use-fake-ui-for-media-stream', // 自动允许权限
     // ignoreHTTPSErrors 只跳过证书校验，仍需把源标记为安全上下文才能用 gUM
     '--unsafely-treat-insecure-origin-as-secure=https://localhost:5173',
@@ -49,9 +56,11 @@ const browser = await chromium.launch({
 })
 
 console.log('E2E 冒烟测试:')
-const ctx = await browser.newContext()
-const pageA = await ctx.newPage() // 拍摄端
-const pageB = await ctx.newPage() // 观看端
+// 两个独立 context（模拟两台设备）：避免同窗口多 tab 的后台 tab 冻结视频帧
+const ctxA = await browser.newContext()
+const ctxB = await browser.newContext()
+const pageA = await ctxA.newPage() // 拍摄端
+const pageB = await ctxB.newPage() // 观看端
 const consoleErrors = []
 for (const p of [pageA, pageB]) {
   p.on('pageerror', (e) => consoleErrors.push(e.message))
@@ -116,6 +125,22 @@ try {
   assert('无对讲错误提示', noTalkError)
   await pageB.locator('.talk').dispatchEvent('mouseup')
   await pageB.waitForTimeout(500)
+
+  // ---- 场景 5：观看端提醒链路 ----
+  // 拍摄端自场景 1 起持续 moving（fake camera 运动图案）→ 每 30s 心跳上报
+  // 开提醒后最多 30s 内收到 moving 心跳 → 横幅出现（不重启拍摄端，避免设备重获抖动）
+  await pageB.locator('.btn.icon-btn').first().click() // 🔔 开启提醒
+  try {
+    await pageB.waitForSelector('.alert', { timeout: 45000 })
+    assert('观看端收到检测提醒横幅', true)
+  } catch (e) {
+    const diag = await pageA.evaluate(
+      () => document.querySelector('.activity .state-label')?.textContent ?? '无检测徽标',
+    )
+    const bell = await pageB.evaluate(() => (document.querySelector('.bell-on') ? 'on' : 'off'))
+    console.error(`  诊断: 拍摄端状态=${diag} 提醒=${bell}`)
+    throw e
+  }
 
   // ---- 场景 4：控制台无致命错误 ----
   const realErrors = consoleErrors.filter((e) => !e.includes('unload')) // 忽略无害的 unload violation

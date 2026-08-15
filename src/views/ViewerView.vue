@@ -7,10 +7,12 @@ import { useTalk } from '../composables/useTalk.mjs'
 import { useScreenshot } from '../composables/useScreenshot.mjs'
 import { useRecorder } from '../composables/useRecorder.mjs'
 import { useWakeLock } from '../composables/useWakeLock.mjs'
+import { useNotifier } from '../composables/useNotifier.mjs'
 import { CONFIG } from '../config.js'
 import ConnectionBadge from '../components/ConnectionBadge.vue'
 import ViewerStage from '../components/ViewerStage.vue'
 import TalkButton from '../components/TalkButton.vue'
+import AlertBanner from '../components/AlertBanner.vue'
 
 const props = defineProps({
   joinCode: { type: String, default: '' },
@@ -23,6 +25,7 @@ const talk = useTalk()
 const screenshot = useScreenshot()
 const recorder = useRecorder()
 const wakeLock = useWakeLock()
+const notifier = useNotifier()
 
 const joined = ref(false)
 const joinError = ref('')
@@ -66,10 +69,8 @@ let offs = [
       pc.close()
     }
   }),
-  on('activity', (m) => {
-    // 检测状态（模块 7/8 消费）
-    console.debug('[activity]', m.state)
-  }),
+  on('activity', (m) => notifier.onActivity(m)),
+  on('activity-backlog', (m) => notifier.onBacklog(m.missed)),
 ]
 
 /** 创建 PeerConnection：本端只收集 ICE，协商由拍摄端发起 */
@@ -172,6 +173,7 @@ onUnmounted(() => {
     </header>
 
     <main>
+      <AlertBanner :banner="notifier.banner.value" />
       <ViewerStage v-if="joined && peerState !== 'left'" ref="stageRef" :stream="remoteStream" />
       <p v-if="talk.error.value" class="error small">{{ talk.error.value }}</p>
 
@@ -194,6 +196,14 @@ onUnmounted(() => {
     </main>
 
     <footer class="controls glass">
+      <button
+        class="btn icon-btn"
+        :class="{ 'bell-on': notifier.enabled.value }"
+        :title="notifier.enabled.value ? '关闭提醒' : '开启提醒'"
+        @click="notifier.enabled.value ? notifier.disable() : notifier.enable()"
+      >
+        🔔
+      </button>
       <button class="btn icon-btn" title="截图" @click="onScreenshot">📸</button>
       <TalkButton
         :talking="talk.talking.value"
@@ -264,6 +274,12 @@ onUnmounted(() => {
   background: var(--danger);
   color: #2a0a10;
   animation: pulse-alert 1.2s ease-in-out infinite;
+}
+.bell-on {
+  background: var(--primary);
+  color: var(--on-primary);
+  border-color: transparent;
+  box-shadow: var(--glow-amber);
 }
 .error.small { text-align: center; font-size: 13px; margin-top: 8px; }
 .ap-hint {

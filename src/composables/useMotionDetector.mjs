@@ -18,6 +18,8 @@ export function useMotionDetector() {
   let quietStreak = 0
   let onActive = null
   let onQuiet = null
+  let lastTime = -1
+  let frozenCycles = 0
 
   function rebuild() {
     diff = createFrameDiff({
@@ -37,6 +39,15 @@ export function useMotionDetector() {
     rebuild()
     timer = setInterval(() => {
       if (document.hidden || !video?.videoWidth) return
+      // 帧冻结保护：视频出帧停止（后台 tab / 摄像头故障）时画面静止，
+      // 不等于"宝宝安静"——跳过采样且不累计判定，保持当前状态
+      if (video.currentTime === lastTime) {
+        frozenCycles++
+        if (frozenCycles >= 4) return // 1s 无新帧 → 冻结
+      } else {
+        lastTime = video.currentTime
+        frozenCycles = 0
+      }
       const r = diff.analyze(video)
       if (r.first) return
       if (warmup > 0) {

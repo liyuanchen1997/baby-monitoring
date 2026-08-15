@@ -34,7 +34,7 @@ WebRTC 实时监控网站应用：一部设备（拍摄端，手机/PC，放宝�
 | 5 连接保障 | Wake Lock、重连分层（WS/ICE/媒体）、AP 隔离提示 | 飞行模式重连 | ✅ 待真机验证 |
 | 6 二维码配对 | QrOverlay、/api/info、?join= 预填 | 扫码直开观看端 | ✅ 待真机验证 |
 | 7 动作/哭闹检测 | frameDiff/audio utils、两个检测器、状态机、灵敏度 | 哭声触发/光照不误报 | ✅ 待真机验证 |
-| 8 观看端提醒 | useNotifier、AlertBanner、离线补发 | 横幅+声音+通知 | ⬜ |
+| 8 观看端提醒 | useNotifier、AlertBanner、离线补发 | 横幅+声音+通知 | ✅ 待真机验证 |
 | 9 打磨与收尾 | 响应式细节、README 完善、生产链路 | build+start 全流程 | ⬜ |
 
 ## 关键架构决策（修改前先读）

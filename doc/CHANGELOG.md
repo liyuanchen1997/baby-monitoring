@@ -115,3 +115,12 @@
 - **新增**：组件 — `ActivityBadge`（三色呼吸点 + 最近事件时间戳列表）、`SensitivityPicker`（低/中/高胶囊分段）
 - **更新**：CameraView — 开始监控时启动双检测器（手势内创建 AudioContext 解锁 iOS）、对讲播放自动 talkActive 抑制、停止监控时释放
 - **验证**：e2e 8/8 通过（新增"动作检测识别画面运动"——fake camera 运动图案触发 moving）；`test:audio-unit` 7/7（bandEnergy 0.694、voicedness 周期 0.94 vs 白噪 0.05、噪声底收敛与抗突发）；真机哭声/光照/对讲误报测试留待统一验证
+
+## 2026-08-15 · 模块 8（观看端提醒）· v0.9.0
+
+- **新增**：`src/composables/useNotifier.mjs` — 提醒编排：状态驱动横幅（calm 或 3min 超时清除）；crying 触发三连音（880Hz 振荡器，enable 手势内解锁 AudioContext）+ 系统通知 + 标题闪烁 + Android 振动；moving 仅横幅+通知；`enable()` 内申请 Notification 权限；离线错过提示（activity-backlog → 系统通知）
+- **新增**：`src/components/AlertBanner.vue` — 告警横幅（哭闹红辉光/活动黄）+ 滑入动画
+- **更新**：ViewerView — 控制栏新增 🔔 提醒开关（开启琥珀高亮）、AlertBanner 置于画面上方、activity 消息接入 notifier、backlog 提示
+- **修复**：motion detector 帧冻结保护——视频出帧停止（后台 tab/摄像头故障）时画面静止 ≠ 宝宝安静，跳过采样不累计判定，防止误报 calm
+- **测试基础设施**：e2e 改为双独立 context（模拟两台设备，避免后台 tab 冻结）；`test/gen-fake-cam.mjs` 生成确定性 fake 摄像头视频（120px 移动方块 y4m，修复 Buffer 引用拷贝 bug——原版所有帧为同一内存导致画面静止），Chromium 默认测试图案在某些实例输出静止帧导致 flaky，改用 `--use-file-for-fake-video-capture` 后完全确定
+- **验证**：e2e 9/9 稳定通过（连续 5 次）；修复前 flaky 根因：默认 fake 图案静止帧 + 同 context 多 tab 后台冻结
