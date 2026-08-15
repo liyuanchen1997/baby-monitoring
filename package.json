@@ -1,0 +1,27 @@
+{
+  "name": "baby-monitoring",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "宝宝监控：WebRTC 局域网实时监控（PC + 移动端）",
+  "scripts": {
+    "dev": "node scripts/dev.mjs",
+    "dev:server": "node --watch server/index.mjs",
+    "dev:client": "vite",
+    "build": "vite build",
+    "start": "node server/index.mjs",
+    "cert": "node scripts/cert.mjs",
+    "cert:serve": "node scripts/serve-cert.mjs",
+    "smoke": "node test/signaling-smoke.mjs"
+  },
+  "dependencies": {
+    "express": "^5.2.1",
+    "qrcode": "^1.5.4",
+    "ws": "^8.21.3"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^6.0.8",
+    "vite": "^8.2.1",
+    "vue": "^3.5.41"
+  }
+}
