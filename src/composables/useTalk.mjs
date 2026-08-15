@@ -22,7 +22,8 @@ export function useTalk() {
         })
       }
       const track = micStream.getAudioTracks()[0]
-      sender = pc?.getSenders().find((s) => s.track?.kind === 'audio') ?? null
+      // 用 sender.kind 匹配（addTransceiver 创建的 sender 初始 track 为 null，直到 replaceTrack）
+      sender = pc?.getSenders().find((s) => s.kind === 'audio') ?? null
       if (!sender) throw new Error('未找到音频通道（先建立连接再说话）')
       await sender.replaceTrack(track)
       talking.value = true

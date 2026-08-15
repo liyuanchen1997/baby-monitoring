@@ -70,3 +70,8 @@
 - **更新**：ViewerView — 底部毛玻璃控制栏（截图/说话/录制/退出），录制中按钮红色脉动；ViewerStage expose video 元素供截图录制；`usePeerConnection` 新增 `get()` 暴露底层 PC
 - **更新**：CameraView — 隐藏 audio 元素外放观看端对讲声（onTrack 接入；「开始监控」手势内 play() 解锁 iOS 音频）
 - **验证**：7 个新/改文件 vite 编译 200 无错误；真实浏览器测试待用户验证
+
+## 2026-08-15 · 修复 · v0.5.1
+
+- **修复**：对讲"未找到音频通道"——`useTalk` 用 `s.track?.kind === 'audio'` 匹配 sender，但 addTransceiver 创建的 sender 初始 track 为 null（replaceTrack 后才填入），改为匹配 `s.kind === 'audio'`。真机验证通过（按住说话 → 拍摄端扬声器出声）
+- **验证**：按住说话功能通过；截图/录制验证待用户确认
