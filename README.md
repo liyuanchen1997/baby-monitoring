@@ -150,4 +150,4 @@ Chrome 出于安全策略不信任用户安装的 CA——请用 **Firefox** 访
 
 ## 📄 License
 
-本项目暂无 LICENSE（保留所有权利）。如需开源许可（如 MIT），请与作者确认后添加。
+[MIT](LICENSE) © 2026 liyuanchen
