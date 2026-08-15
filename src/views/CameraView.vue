@@ -233,10 +233,10 @@ onUnmounted(() => {
       <span class="room-label muted">房间码</span>
       <span class="code num">{{ roomCode }}</span>
       <span v-if="peerJoined" class="peer">
-        <span class="halo live"></span>已连接
+        <span class="halo live"></span><span class="peer-text">已连接</span>
       </span>
       <span v-else class="peer muted">
-        <span class="halo warn"></span>等待加入
+        <span class="halo warn"></span><span class="peer-text">等待加入</span>
       </span>
       <button class="btn btn-ghost btn-sm" @click="showQr = true">📱 二维码</button>
     </nav>
@@ -319,8 +319,8 @@ main {
 .room-bar {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 14px;
+  gap: 10px;
+  padding: 8px 12px;
 }
 .room-label { font-size: 13px; }
 .code {
@@ -377,6 +377,13 @@ main {
 .error { color: var(--danger); text-align: center; margin-top: 8px; }
 .hidden-audio { display: none; }
 .wake-hint { margin-top: 8px; font-size: 12px; }
+
+/* 移动端：房间码条压缩（隐藏状态文字只留圆点，房间码保持 30px） */
+@media (max-width: 767px) {
+  .peer-text { display: none; }
+  .room-bar { gap: 8px; padding: 8px 10px; }
+  .room-bar .btn { padding: 6px 10px; font-size: 12px; }
+}
 
 @media (min-width: 1024px) {
   .camera-view { max-width: 760px; padding-top: 32px; }
