@@ -4,10 +4,14 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useSignaling } from '../composables/useSignaling.mjs'
 import { useCamera } from '../composables/useCamera.mjs'
 import { usePeerConnection } from '../composables/usePeerConnection.mjs'
+import { useWakeLock } from '../composables/useWakeLock.mjs'
+import { CONFIG } from '../config.js'
 import ConnectionBadge from '../components/ConnectionBadge.vue'
 import CameraPreview from '../components/CameraPreview.vue'
 
 const talkAudio = ref(null) // 隐藏 audio：外放观看端对讲声音
+const previewRef = ref(null)
+const wakeLock = useWakeLock()
 
 const { status: wsStatus, connect, send, on, close } = useSignaling()
 const camera = useCamera()
@@ -36,12 +40,83 @@ let offs = [
   }),
   on('answer', (m) => pc.handleAnswer(m.sdp)),
   on('ice', (m) => pc.handleIce(m.candidate)),
+  on('restart-request', () => restartAndSendOffer()),
   on('error', (m) => {
     error.value = m.message
   }),
 ]
 
-onMounted(() => connect())
+// ---- L1 ICE 状态机（拍摄端主导重连，见设计文档 §4）----
+let iceTimer = null
+
+function onPcState(state) {
+  if (state === 'disconnected') {
+    // 容忍短暂断开（WiFi 瞬断可能自动恢复），5s 后仍断则 ICE restart
+    clearTimeout(iceTimer)
+    iceTimer = setTimeout(() => {
+      if (pc.connectionState.value !== 'connected') restartAndSendOffer()
+    }, CONFIG.reconnect.iceDisconnectedMs)
+  } else if (state === 'failed') {
+    clearTimeout(iceTimer)
+    rebuildPeer()
+  } else {
+    clearTimeout(iceTimer)
+  }
+}
+
+async function restartAndSendOffer() {
+  if (busy.value || !cameraActive.value || !peerJoined.value) return
+  busy.value = true
+  try {
+    const offer = await pc.restartIce()
+    send('offer', { sdp: offer.sdp })
+  } catch {
+    // restart 失败（连接已死）→ 整体重建
+    pc.close()
+    await maybeNegotiate()
+  } finally {
+    busy.value = false
+  }
+}
+
+async function rebuildPeer() {
+  pc.close()
+  await maybeNegotiate()
+}
+
+// ---- L2 媒体冻结检测：connected 但画面 >5s 无新帧 → restartIce ----
+let lastFrameTs = 0
+let mediaWatchTimer = null
+
+function startMediaWatch() {
+  const v = previewRef.value?.video
+  if (!v?.requestVideoFrameCallback) return
+  const tick = (now) => {
+    lastFrameTs = now
+    v.requestVideoFrameCallback(tick)
+  }
+  v.requestVideoFrameCallback(tick)
+  clearInterval(mediaWatchTimer)
+  mediaWatchTimer = setInterval(() => {
+    if (
+      pc.connectionState.value === 'connected' &&
+      lastFrameTs > 0 &&
+      performance.now() - lastFrameTs > CONFIG.reconnect.mediaFrozenMs
+    ) {
+      restartAndSendOffer()
+    }
+  }, 2000)
+}
+
+function stopMediaWatch() {
+  clearInterval(mediaWatchTimer)
+  lastFrameTs = 0
+}
+
+onMounted(() => {
+  connect()
+  wakeLock.request()
+})
 
 watch(wsStatus, (s) => {
   if (s === 'connected' && !roomCode.value) send('create-room')
@@ -59,6 +134,7 @@ async function startCamera() {
   cameraActive.value = !!camera.stream.value
   if (!cameraActive.value) error.value = camera.error.value || '摄像头启动失败'
   busy.value = false
+  if (cameraActive.value) startMediaWatch()
   maybeNegotiate()
   // iOS 音频解锁：播放远端对讲流须在用户手势内（"开始监控"点击）
   if (talkAudio.value) {
@@ -69,6 +145,7 @@ async function startCamera() {
 function stopCamera() {
   camera.stop()
   cameraActive.value = false
+  stopMediaWatch()
   if (talkAudio.value) talkAudio.value.srcObject = null
   pc.close()
 }
@@ -86,6 +163,7 @@ async function maybeNegotiate() {
   try {
     pc.create({
       onIceCandidate: (candidate) => send('ice', { candidate }),
+      onStateChange: onPcState,
       // 远端流 = 观看端对讲声音 → 拍摄端扬声器外放
       onTrack: (stream) => {
         if (talkAudio.value) talkAudio.value.srcObject = stream
@@ -110,8 +188,11 @@ const badgeState = computed(() => {
 })
 
 onUnmounted(() => {
+  clearTimeout(iceTimer)
+  stopMediaWatch()
   offs.forEach((f) => f())
   camera.stop()
+  wakeLock.release()
   pc.close()
   close()
 })
@@ -125,7 +206,7 @@ onUnmounted(() => {
     </header>
 
     <main>
-      <CameraPreview :stream="camera.stream.value" />
+      <CameraPreview ref="previewRef" :stream="camera.stream.value" />
 
       <section v-if="roomCode" class="room-card glass">
         <p class="label">房间码</p>
@@ -134,6 +215,9 @@ onUnmounted(() => {
           <span class="halo live"></span> 观看端已连接
         </p>
         <p v-else class="peer-line muted">等待观看端加入…</p>
+        <p v-if="!wakeLock.active.value" class="wake-hint muted">
+          {{ wakeLock.supported.value ? '屏幕常亮已关闭' : '本设备不支持自动常亮，请手动设置永不锁屏' }}
+        </p>
       </section>
       <p v-else class="muted center">正在创建房间…</p>
 
@@ -213,6 +297,7 @@ onUnmounted(() => {
 .center { text-align: center; margin-top: 16px; }
 .error { color: var(--danger); text-align: center; margin-top: 8px; }
 .hidden-audio { display: none; }
+.wake-hint { margin-top: 8px; font-size: 12px; }
 
 @media (min-width: 1024px) {
   .camera-view { max-width: 760px; padding-top: 32px; }

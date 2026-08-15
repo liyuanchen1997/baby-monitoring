@@ -75,3 +75,11 @@
 
 - **修复**：对讲"未找到音频通道"——`useTalk` 用 `s.track?.kind === 'audio'` 匹配 sender，但 addTransceiver 创建的 sender 初始 track 为 null（replaceTrack 后才填入），改为匹配 `s.kind === 'audio'`。真机验证通过（按住说话 → 拍摄端扬声器出声）
 - **验证**：按住说话功能通过；截图/录制验证待用户确认
+
+## 2026-08-15 · 模块 5（连接保障）· v0.6.0
+
+- **新增**：`src/composables/useWakeLock.mjs` — 屏幕常亮（screen wake lock + visibilitychange 回前台重新请求 + iOS<16.4 降级提示），拍摄端/观看端均启用，拍摄端房间卡显示常亮状态提示
+- **更新**：`usePeerConnection` — create 前先 close 旧 PC（防泄漏）；新增 `iceState`/`everConnected` 状态（AP 隔离判定）；新增 `restartIce()`（iceRestart 新 offer，不重建）
+- **更新**：CameraView — L1 ICE 状态机：disconnected 容忍 5s → `restartIce` 重协商；failed → 整体重建 PC（保留 WS 与房间）；L2 媒体冻结检测（requestVideoFrameCallback，connected 且 >5s 无新帧 → restartIce）；处理 `restart-request`
+- **更新**：ViewerView — failed 5s 后仍失败 → 发 `restart-request` 请求拍摄端重协商；AP 隔离提示（WS 正常 + ICE failed + 从未连接成功 → 黄框提示路由器可能开启客户端隔离）
+- **验证**：5 个新/改文件编译 200 无错误；真实断网重连待用户验证（飞行模式/WiFi 断开 10s 再恢复，画面应自动续上）

@@ -10,9 +10,12 @@ import { CONFIG } from '../config.js'
 
 export function usePeerConnection() {
   const connectionState = ref('new') // new|connecting|connected|disconnected|failed|closed
+  const iceState = ref('new') // new|checking|connected|completed|disconnected|failed|closed
+  const everConnected = ref(false) // 本次会话是否成功建立过连接（AP 隔离判定用）
   let pc = null
 
   function create({ onIceCandidate, onStateChange, onTrack } = {}) {
+    if (pc) pc.close() // 重建前先释放旧连接，避免泄漏
     pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] })
     pc.onicecandidate = (e) => {
       if (e.candidate) onIceCandidate?.(e.candidate.toJSON())
@@ -21,6 +24,12 @@ export function usePeerConnection() {
       connectionState.value = pc.connectionState
       onStateChange?.(pc.connectionState)
     }
+    pc.oniceconnectionstatechange = () => {
+      iceState.value = pc.iceConnectionState
+      if (pc.iceConnectionState === 'connected' || pc.iceConnectionState === 'completed') {
+        everConnected.value = true
+      }
+    }
     pc.ontrack = (e) => {
       if (!onTrack) return
       // iOS Safari 部分版本 e.streams 为空，用 track 兜底构造
@@ -28,6 +37,7 @@ export function usePeerConnection() {
       onTrack(stream)
     }
     connectionState.value = 'new'
+    iceState.value = 'new'
     return pc
   }
 
@@ -53,6 +63,16 @@ export function usePeerConnection() {
   /** 观看端：把发送方向切为接收（拍摄端 offer 中原有的 audio 通道复用） */
   async function handleAnswer(sdp) {
     await pc.setRemoteDescription({ type: 'answer', sdp })
+  }
+
+  /**
+   * ICE restart：带 iceRestart 标志的新 offer（仅拍摄端调用）
+   * 不重建连接，只是重新收集候选 —— 用于 disconnected（WiFi 瞬断等）场景
+   */
+  async function restartIce() {
+    const offer = await pc.createOffer({ iceRestart: true })
+    await pc.setLocalDescription(offer)
+    return offer
   }
 
   async function handleIce(candidate) {
@@ -90,5 +110,18 @@ export function usePeerConnection() {
     return pc
   }
 
-  return { connectionState, create, makeOffer, handleOffer, handleAnswer, handleIce, applyBitrate, close, get }
+  return {
+    connectionState,
+    iceState,
+    everConnected,
+    create,
+    makeOffer,
+    handleOffer,
+    handleAnswer,
+    handleIce,
+    restartIce,
+    applyBitrate,
+    close,
+    get,
+  }
 }

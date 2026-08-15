@@ -19,6 +19,9 @@ watch(
   },
   { flush: 'post' },
 )
+
+// 供父组件媒体冻结检测（L2 重连）访问 video
+defineExpose({ video })
 </script>
 
 <template>

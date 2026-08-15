@@ -6,6 +6,7 @@ import { usePeerConnection } from '../composables/usePeerConnection.mjs'
 import { useTalk } from '../composables/useTalk.mjs'
 import { useScreenshot } from '../composables/useScreenshot.mjs'
 import { useRecorder } from '../composables/useRecorder.mjs'
+import { useWakeLock } from '../composables/useWakeLock.mjs'
 import { CONFIG } from '../config.js'
 import ConnectionBadge from '../components/ConnectionBadge.vue'
 import ViewerStage from '../components/ViewerStage.vue'
@@ -21,6 +22,7 @@ const pc = usePeerConnection()
 const talk = useTalk()
 const screenshot = useScreenshot()
 const recorder = useRecorder()
+const wakeLock = useWakeLock()
 
 const joined = ref(false)
 const joinError = ref('')
@@ -74,11 +76,24 @@ function ensurePeer() {
   if (pc.connectionState.value !== 'new' && pc.connectionState.value !== 'closed') return
   pc.create({
     onIceCandidate: (candidate) => send('ice', { candidate }),
+    onStateChange: (state) => {
+      // failed 且 5s 后拍摄端无动作 → 请求拍摄端重协商
+      if (state === 'failed') {
+        setTimeout(() => {
+          if (pc.connectionState.value === 'failed') send('restart-request')
+        }, CONFIG.reconnect.iceDisconnectedMs)
+      }
+    },
     onTrack: (stream) => {
       remoteStream.value = stream
     },
   })
 }
+
+/** AP 隔离提示：WS 正常但 ICE 失败且从未成功连接过 */
+const apIsolation = computed(
+  () => wsStatus.value === 'connected' && pc.iceState.value === 'failed' && !pc.everConnected.value,
+)
 
 function tryJoin() {
   if (wsStatus.value === 'connected' && props.joinCode && !joined.value) {
@@ -86,7 +101,10 @@ function tryJoin() {
   }
 }
 
-onMounted(() => connect())
+onMounted(() => {
+  connect()
+  wakeLock.request()
+})
 
 watch(wsStatus, (s) => {
   if (s === 'connected') tryJoin()
@@ -136,6 +154,7 @@ onUnmounted(() => {
   clearInterval(retryTimer)
   offs.forEach((f) => f())
   talk.dispose()
+  wakeLock.release()
   pc.close()
   close()
 })
@@ -161,6 +180,11 @@ onUnmounted(() => {
       <section v-else class="error-card glass">
         <p class="muted">{{ wsStatus === 'connected' ? '正在加入房间…' : '正在连接服务器…' }}</p>
       </section>
+
+      <p v-if="apIsolation" class="ap-hint">
+        ⚠️ 无法建立点对点直连——路由器可能开启了「AP 隔离/客户端隔离」，
+        请关闭该选项或更换网络后重试
+      </p>
 
       <p class="room-info muted num">房间 {{ props.joinCode }}</p>
     </main>
@@ -238,6 +262,15 @@ onUnmounted(() => {
   animation: pulse-alert 1.2s ease-in-out infinite;
 }
 .error.small { text-align: center; font-size: 13px; margin-top: 8px; }
+.ap-hint {
+  text-align: center;
+  font-size: 13px;
+  color: var(--warning);
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  background: rgba(251, 191, 36, 0.1);
+  border: 1px solid rgba(251, 191, 36, 0.25);
+}
 
 @media (min-width: 1024px) {
   .viewer-view { max-width: 860px; padding-top: 32px; }
