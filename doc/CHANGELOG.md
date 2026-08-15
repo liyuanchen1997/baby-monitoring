@@ -23,3 +23,14 @@
 - **新增**：`scripts/dev.mjs` — 开发环境一键编排：证书检查 → 并行启动后端(:3443，模块 2 落地后生效)与前端(:5173) → 打印各设备访问清单；任一子进程退出即整体停止
 - **环境**：安装 mkcert v1.4.4（brew）；本机钥匙串授权在非交互终端下受限（提示用户可自行运行 `mkcert -install` 获得 macOS 绿锁，不影响手机端）
 - **验证**：证书 SAN 正确（DNS:localhost, IP:127.0.0.1, IP:192.168.31.184）；`--cacert rootCA.pem` 验证信任链完整 HTTP 200（模拟手机装 CA 后效果）；vite HTTPS 出页 200；serve-cert 端口避让（8080 被占用→8081）与 rootCA.pem 下载正常
+
+## 2026-08-15 · 模块 2（信令服务器与页面骨架）· v0.3.0
+
+- **新增**：`server/signaling.mjs` — WebSocket 信令服务器（挂载 /ws）：房间管理（一房 2 peer：camera/viewer）、offer/answer/ice/restart-request 原样中继、activity 最新状态缓存与补发/离线错过提示（activity-backlog）、30s 心跳保活、拍摄端断开即删房/观看端断开仅清槽位、发送失败立即 terminate
+- **新增**：`server/index.mjs` — HTTPS 入口（:3443）：/api/info 返回 LAN IP（供二维码）、dist/ 存在时挂载静态服务 + SPA fallback（express 5 中间件兜底）、挂载信令
+- **新增**：`src/composables/useSignaling.mjs` — 前端 WS 封装：同源地址推导、指数退避重连（1s→30s）、按 type 分发（on 返回取消函数）、20s ping 保活
+- **更新**：CameraView — 连接就绪自动建房、房间码大字显示、观看端加入/离开状态、重连带恢复码重建同码房间
+- **更新**：ViewerView — 加入房间、room-not-found 自动重试（2s 间隔 60s 上限）、camera-left 状态、activity 消息透传（供模块 7/8 消费）
+- **新增**：`test/signaling-smoke.mjs` — 冒烟测试：带消息队列的 ws 客户端（防连帧消息丢失），17 项断言覆盖建房/加入/中继/补发/backlog/满员/离开/恢复码/冲突/not-found/ping
+- **验证**：smoke 17/17 通过；dev 全链路通（/api/info 正确、vite 页面与 SFC 编译 200、WS 代理 5173→3443 ping/pong 通）
+- **修复**（测试脚本）：初版 once() 监听器切换间隙丢失连帧消息 → 改为消息队列式客户端
