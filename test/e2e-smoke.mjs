@@ -86,14 +86,19 @@ try {
   )
   assert('拍摄端本地预览画面', true)
 
-  // 二维码渲染 + URL 指向局域网观看入口
-  await pageA.waitForSelector('.qr canvas', { timeout: 10000 })
+  // 二维码按钮 → 弹层渲染（等 fetchLanIp + render 完成）→ URL 指向局域网观看入口
+  await pageA.click('.room-bar .btn') // 📱 二维码
+  await pageA.waitForFunction(
+    () => (document.querySelector('.qr-modal .qr-url')?.textContent ?? '').includes('/?join='),
+    { timeout: 10000 },
+  )
   const qrOk = await pageA.evaluate(() => {
-    const c = document.querySelector('.qr canvas')
-    const url = document.querySelector('.qr-url')?.textContent ?? ''
+    const c = document.querySelector('.qr-modal .qr canvas')
+    const url = document.querySelector('.qr-modal .qr-url')?.textContent ?? ''
     return c?.width > 100 && url.includes('/?join=') && url.startsWith('https://')
   })
-  assert('二维码渲染且 URL 指向观看入口', qrOk)
+  assert('二维码弹层渲染且 URL 指向观看入口', qrOk)
+  await pageA.click('.qr-panel .btn') // 关闭弹层
 
   // 动作检测：fake camera 有持续运动图案 → 状态应从「安静」变为「轻微活动」
   await pageA.waitForFunction(

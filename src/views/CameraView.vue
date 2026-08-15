@@ -29,6 +29,7 @@ const peerJoined = ref(false) // 观看端是否在线
 const cameraActive = ref(false) // 摄像头是否已开启
 const busy = ref(false) // 协商中，防重入
 const error = ref('')
+const showQr = ref(false) // 二维码弹层
 
 let offs = [
   on('room-created', (m) => {
@@ -227,22 +228,21 @@ onUnmounted(() => {
       <ConnectionBadge :state="badgeState" />
     </header>
 
+    <!-- 房间码：紧凑单行，置于头部下方 -->
+    <nav v-if="roomCode" class="room-bar glass">
+      <span class="code num">{{ roomCode }}</span>
+      <span v-if="peerJoined" class="peer">
+        <span class="halo live"></span>已连接
+      </span>
+      <span v-else class="peer muted">
+        <span class="halo warn"></span>等待加入
+      </span>
+      <button class="btn btn-ghost btn-sm" @click="showQr = true">📱 二维码</button>
+    </nav>
+    <p v-else class="muted center">正在创建房间…</p>
+
     <main>
       <CameraPreview ref="previewRef" :stream="camera.stream.value" />
-
-      <section v-if="roomCode" class="room-card glass">
-        <p class="label">房间码</p>
-        <p class="code num">{{ roomCode }}</p>
-        <QrOverlay :code="roomCode" />
-        <p v-if="peerJoined" class="peer-line">
-          <span class="halo live"></span> 观看端已连接
-        </p>
-        <p v-else class="peer-line muted">等待观看端加入…</p>
-        <p v-if="!wakeLock.active.value" class="wake-hint muted">
-          {{ wakeLock.supported.value ? '屏幕常亮已关闭' : '本设备不支持自动常亮，请手动设置永不锁屏' }}
-        </p>
-      </section>
-      <p v-else class="muted center">正在创建房间…</p>
 
       <template v-if="cameraActive">
         <ActivityBadge :state="activity.state.value" :events="activity.events.value" />
@@ -254,6 +254,20 @@ onUnmounted(() => {
 
       <p v-if="error" class="error">{{ error }}</p>
     </main>
+
+    <!-- 二维码弹层（点击按钮展示） -->
+    <teleport to="body">
+      <div v-if="showQr" class="qr-modal" @click.self="showQr = false">
+        <div class="qr-panel glass">
+          <p class="qr-title">扫码进入观看端</p>
+          <QrOverlay :code="roomCode" />
+          <p v-if="!wakeLock.supported.value" class="wake-hint muted">
+            本设备不支持自动常亮，请手动设置永不锁屏
+          </p>
+          <button class="btn" @click="showQr = false">关闭</button>
+        </div>
+      </div>
+    </teleport>
 
     <footer class="controls glass">
       <button
@@ -292,27 +306,50 @@ onUnmounted(() => {
 }
 .topbar h1 { font-size: 20px; }
 
-.room-card {
-  padding: 16px;
-  text-align: center;
+/* 房间码条：紧凑单行 */
+.room-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 14px;
 }
-.label { font-size: 13px; color: var(--muted); }
 .code {
-  font-size: 52px;
+  font-size: 22px;
   font-weight: 700;
   color: var(--primary);
-  text-shadow: var(--glow-amber);
-  line-height: 1.2;
-  margin: 4px 0 8px;
+  letter-spacing: 0.12em;
 }
-.peer-line {
+.peer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--ok);
+}
+.room-bar .btn { margin-left: auto; padding: 8px 14px; font-size: 13px; }
+
+/* 二维码弹层 */
+.qr-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  background: rgba(5, 8, 20, 0.7);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  font-size: 14px;
-  color: var(--ok);
+  padding: 24px;
 }
+.qr-panel {
+  padding: 24px 20px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+}
+.qr-title { font-size: 15px; font-weight: 600; }
+.wake-hint { font-size: 12px; }
 
 .controls {
   margin-top: auto;
